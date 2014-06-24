@@ -3,7 +3,7 @@ project(mujin CXX)
 
 find_package(PkgConfig) # pkg_check_modules
 
-find_package(Boost COMPONENTS thread date_time filesystem system unit_test_framework REQUIRED)
+find_package(Boost COMPONENTS atomic thread date_time filesystem system unit_test_framework REQUIRED)
 
 if(Boost_FOUND)
 	include_directories(${Boost_INCLUDE_DIR})
@@ -45,7 +45,14 @@ if( ASSIMP_FOUND )
   # For older versions of libassimp2, 
   # like the one in Ubuntu 12.04 
   set(CMAKE_REQUIRED_LIBRARIES assimp) 
-  set(CMAKE_REQUIRED_LIBRARIES)
+  find_path(ASSIMP_LIBRARY_DIRS
+        ${CMAKE_SHARED_LIBRARY_PREFIX}assimp${CMAKE_SHARED_LIBRARY_SUFFIX})
+  if(ASSIMP_LIBRARY_DIRS)
+      #set(ASSIMP_LIBRARIES ${CMAKE_SHARED_LIBRARY_PREFIX}assimp${CMAKE_SHARED_LIBRARY_SUFFIX})
+      message(STATUS "Assimp library : " ${ASSIMP_LIBRARIES}) 
+  else()
+      message(FATAL_ERROR "Libassimp is required by Mujin")
+  endif()
   if( ${ASSIMP_VERSION} STRGREATER "2.0.0" )
     set(IS_ASSIMP3 1)
   endif()

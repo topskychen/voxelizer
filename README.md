@@ -3,6 +3,7 @@
 This project requires libraries as follow:
  - boost 
  - libfcl for collision checking (https://github.com/flexible-collision-library/fcl)
+  + octomap installed
  - assimp for loading STL file (https://github.com/assimp/assimp)
 
 
