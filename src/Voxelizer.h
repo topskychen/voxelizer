@@ -46,12 +46,18 @@ class Voxelizer {
 	v3_p _vertices;
 	int _numVertices;
 
-	int _size;
+	uint_p _voxelsBuffer;
 	auint_p _voxels;
+	int _size, _totalSize;
+	v3_p _voxelLb, _voxelUb;
+
+	v3_p _boundaries;
+	int _numBoundaries;
 
 //	fcl::Transform3f _identity;
 
 	inline void loadFromMesh(const aiMesh* mesh);
+	inline void prepareBoundareis();
 public:
 	const int& getSize() const;
 	inline const auint_p& getVoxels() const;
@@ -65,11 +71,11 @@ public:
 	inline unsigned int convVoxelToInt(const v3_p& voxel);
 	inline unsigned int convVoxelToInt(const Vec3f& voxel);
 	inline int bfsSurface(const tri_p& tri, const v3_p& lb, const v3_p& ub);
-	void randomPermutation();
+	void randomPermutation(const v3_p& data, int num);
 	void voxelizeSurface(int numThread=1);
 	void runSurfaceTask(const int triId);
 	void voxelizeSolid(int numThread=1);
-	void runSolidTask(const v3_p& start);
+	void runSolidTask(const int voxelId);
 	void collectResult();
 	void write(const string& pFile);
 	Voxelizer(int size, const string& pFile);

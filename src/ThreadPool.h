@@ -21,6 +21,7 @@ class ThreadPool {
 public:
 	void stop(bool wait=true);
 	ThreadPool(size_t nThreads = 1);
+	void restart(size_t nThreads = 1);
 	template<typename T>
 	void run(T func) {
 		_service.post(func);

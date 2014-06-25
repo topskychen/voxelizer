@@ -33,6 +33,7 @@ typedef boost::atomic_uint auint;
 typedef boost::shared_ptr<boost::atomic_uint> auint_p;
 
 typedef boost::unordered_set<unsigned int> hash_set;
+typedef boost::shared_ptr<unsigned int> uint_p;
 
 typedef unsigned char byte;
 
@@ -40,6 +41,17 @@ bool collide(const v3_p& size, const v3_p& boxAA, const tri_p& tri);
 inline void fill(const Vec3f& vc, float ft[3]);
 
 int random(const int l, const int r);
+
+const Vec3f D_8[] = {
+	Vec3f(1, 1, 1),
+	Vec3f(1, 1, -1),
+	Vec3f(1, -1, 1),
+	Vec3f(1, -1, -1),
+	Vec3f(-1, 1, 1),
+	Vec3f(-1, 1, -1),
+	Vec3f(-1, -1, 1),
+	Vec3f(-1, -1, -1)
+};
 
 const Vec3f D_6[] = {
 	Vec3f(0, 0, -1),

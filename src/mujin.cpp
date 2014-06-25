@@ -21,7 +21,7 @@ using namespace std;
 
 typedef boost::shared_ptr<aiScene> scene_p;
 typedef boost::shared_ptr<aiMesh> mesh_p;
-typedef boost::shared_ptr<int> int_p;
+
 
 
 int main(int args, char* argv[]) {
@@ -36,7 +36,12 @@ int main(int args, char* argv[]) {
 		timer.restart();
 		Voxelizer voxelizer(gridSize, inputFile);
 		voxelizer.voxelizeSurface(numThread);
+		timer.stop();
+		timer.printTimeInS();
 		voxelizer.voxelizeSolid(numThread);
+		timer.stop();
+		timer.printTimeInS();
+		timer.restart();
 		voxelizer.write(outputFile);
 		timer.stop();
 		timer.printTimeInS();

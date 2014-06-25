@@ -11,6 +11,7 @@
 
 
 Voxelizer::Voxelizer(int size, const string& pFile): _size(size) {
+	cout << "voxelizer init... " << endl;
 	const aiScene* scene;
 	try {
 		/*
@@ -22,26 +23,27 @@ Voxelizer::Voxelizer(int size, const string& pFile): _size(size) {
 			throw std::runtime_error("Scene fails to be loaded!");
 		}
 		aiMesh* mesh = scene->mMeshes[0];
-		int total_size = size*size*size/BATCH_SIZE;
-		if (total_size < 0)
+		_totalSize = size*size*size/BATCH_SIZE;
+		if (_totalSize < 0)
 			throw std::runtime_error("Size overflow!");
 
 		/**
 		 * Reset voxels.
 		 */
-		_voxels.reset(new auint[total_size], ArrayDeleter<auint>());
-		memset(_voxels.get(), 0, total_size * sizeof(int));
+		_voxels.reset(new auint[_totalSize], ArrayDeleter<auint>());
+		_voxelsBuffer.reset(new unsigned int[_totalSize], ArrayDeleter<unsigned int>());
+		memset(_voxels.get(), 0, _totalSize * sizeof(int));
 
 		/**
 		 * Store info.
 		 */
 		_numVertices = mesh->mNumVertices;
 		_numFaces = mesh->mNumFaces;
-		std::cout << "Faces : " << _numFaces << std::endl;
-		std::cout << "Vertices : " << _numVertices << std::endl;
+		std::cout << "faces : " << _numFaces << std::endl;
+		std::cout << "vertices : " << _numVertices << std::endl;
 		loadFromMesh(mesh);
+//		prepareBoundareis();
 
-		randomPermutation();
 
 //		_identity.setIdentity();
 		if (!scene) delete scene;
@@ -49,7 +51,7 @@ Voxelizer::Voxelizer(int size, const string& pFile): _size(size) {
 		std::cout << e.what() << std::endl;
 		if (!scene) delete scene;
 	}
-	cout << "Voxelizer setup!" << endl;
+	cout << "done." << endl;
 }
 
 /**
@@ -127,9 +129,12 @@ inline void Voxelizer::loadFromMesh(const aiMesh* mesh) {
 		_faces.get()[i] = Vec3f(mesh->mFaces[i].mIndices[0],
 				mesh->mFaces[i].mIndices[1], mesh->mFaces[i].mIndices[2]);
 	}
+	randomPermutation(_faces, _numFaces);
 	Vec3f halfUnit = (*_bound) / ((float) _size*2);
 	_halfUnit.reset(new Vec3f(halfUnit));
-	cout << "Bounds : " << *_lb << ", " << *_ub << endl;
+	_voxelLb.reset(new Vec3f(0, 0, 0));
+	_voxelUb.reset(new Vec3f(_size-1, _size-1, _size-1));
+	cout << "bound : " << *_lb << ", " << *_ub << endl;
 }
 
 
@@ -137,11 +142,14 @@ inline void Voxelizer::loadFromMesh(const aiMesh* mesh) {
  * Run tasks.
  */
 void Voxelizer::voxelizeSurface(const int numThread) {
+	 cout << "surface voxelizing... " << endl;
 	 ThreadPool tp(numThread);
 	 for (int i = 0; i < _numFaces; ++i) {
 		 tp.run(boost::bind(&Voxelizer::runSurfaceTask, this, i));
 	 }
 	 tp.stop();
+	 for (int i = 0; i < _totalSize; ++i) _voxelsBuffer.get()[i] = _voxels.get()[i];
+	 cout << "done." << endl;
 }
 
 void Voxelizer::runSurfaceTask(const int triId) {
@@ -218,15 +226,44 @@ inline int Voxelizer::bfsSurface(const tri_p& tri, const v3_p& lb, const v3_p& u
 }
 
 void Voxelizer::voxelizeSolid(int numThread) {
-//	ThreadPool tp(numThread);
-//	for (int i = 0; i < _numFaces; ++i) {
-//		task_p task(new Task(getTri(i)));
-//		tp.run(boost::bind(&Voxelizer::runSurfaceTask, this, task));
+	cout << "solid voxelizing... " << endl;
+//	for (int i = 0; i < _totalSize; ++i) _voxelsBuffer.get()[i] = _voxelsBuffer.get()[i]^(~0);
+	for (int i = 0; i < _totalSize; ++i) _voxelsBuffer.get()[i] = 0;
+	ThreadPool tp(numThread);
+	prepareBoundareis();
+//	for (int i = 0; i < _numBoundaries; ++i) {
+//		tp.run(boost::bind(&Voxelizer::runSolidTask, this, i));
 //	}
-//	tp.stop();
+	tp.stop();
+//	for (int i = 0; i < _totalSize; ++i) _voxelsBuffer.get()[i] ^= _voxels.get()[i];
+	for (int i = 0; i < _totalSize; ++i) _voxelsBuffer.get()[i] ^= (~0);
+	cout << "done." << endl;
 }
 
-void Voxelizer::runSolidTask(const v3_p& start) {
+void Voxelizer::runSolidTask(const int voxelId) {
+	unsigned int startInt = convVoxelToInt(_boundaries.get()[voxelId]);
+	unsigned int tmp = (_voxels.get())[startInt/BATCH_SIZE].load();
+	if (GETBIT(tmp, startInt)) return;
+	queue<unsigned int> q;
+	q.push(startInt);
+	v3_p topVoxel(new Vec3f(0, 0, 0));
+	while (!q.empty()) {
+		unsigned int topVoxelInt = q.front();
+		tmp = (_voxels.get())[topVoxelInt/BATCH_SIZE].load();
+		q.pop();
+		topVoxel = convIntToVoxel(topVoxelInt);
+		if (!GETBIT(tmp, topVoxelInt)) {
+			(_voxels.get())[topVoxelInt / BATCH_SIZE] |= (1<<(topVoxelInt % BATCH_SIZE));
+			for (int i = 0; i < 6; i++) {
+				Vec3f newVoxel = *topVoxel + D_6[i];
+				if (!inRange(newVoxel, _voxelLb, _voxelUb)) continue;
+				unsigned int newVoxelInt = convVoxelToInt(newVoxel);
+				tmp = (_voxels.get())[newVoxelInt/BATCH_SIZE].load();
+				if(!GETBIT(tmp, newVoxelInt)) q.push(newVoxelInt);
+			}
+		}
+
+	}
 }
 
 inline bool Voxelizer::inRange(const Vec3f& vc, const v3_p& lb, const v3_p& ub) {
@@ -252,6 +289,7 @@ inline unsigned int Voxelizer::convVoxelToInt(const Vec3f& voxel) {
  */
 void Voxelizer::write(const string& pFile) {
 
+	cout << "writing voxels to file...";
 	ofstream* output = new ofstream(pFile.c_str(), ios::out | ios::binary);
 
 //	  Vector norm_translate = voxels.get_norm_translate();
@@ -268,11 +306,9 @@ void Voxelizer::write(const string& pFile) {
 	//  *output << "dim [" << depth << "," << height << "," << width << "]" << endl;
 	//  *output << "type RLE" << endl;
 	*output << "dim " << _size << " " << _size << " " << _size << endl;
-	cout << "Dim : " << _size << " x " << _size << " x " << _size << endl;
+	cout << "dim : " << _size << " x " << _size << " x " << _size << endl;
 	*output << "translate " << -norm_translate[0] << " " << -norm_translate[2]
 			<< " " << -norm_translate[1] << endl;
-	cout << "translate " << -norm_translate[0] << " " << -norm_translate[2]
-				<< " " << -norm_translate[1] << endl;
 	*output << "scale " << norm_scale << endl;
 	*output << "data" << endl;
 
@@ -288,10 +324,10 @@ void Voxelizer::write(const string& pFile) {
 	 */
 	while (index < size) {
 
-		value = GETBIT(_voxels.get()[index/BATCH_SIZE],index);
+		value = GETBIT(_voxelsBuffer.get()[index/BATCH_SIZE],index);
 		count = 0;
 		while ((index < size) && (count < 255)
-				&& (value == GETBIT(_voxels.get()[index/BATCH_SIZE],index))) {
+				&& (value == GETBIT(_voxelsBuffer.get()[index/BATCH_SIZE],index))) {
 			index++;
 			count++;
 		}
@@ -306,19 +342,90 @@ void Voxelizer::write(const string& pFile) {
 
 	output->close();
 
-	cout << "Wrote " << total_ones << " set voxels out of " << size << ", in "
+	cout << "wrote " << total_ones << " set voxels out of " << size << ", in "
 			<< bytes_written << " bytes" << endl;
 }
 
-void Voxelizer::randomPermutation() {
+void Voxelizer::randomPermutation(const v3_p& data, int num) {
 
-	for (int i = 0, id; i < _numFaces; ++i) {
-		id = random(i, _numFaces-1);
-		if (i != id) swap((_faces.get())[i], (_faces.get())[id]);
+	for (int i = 0, id; i < num; ++i) {
+		id = random(i, num-1);
+		if (i != id) swap((data.get())[i], (data.get())[id]);
 	}
-	cout << "Random permutation..." << endl;
+//	cout << "random permutating... " << endl;
 }
 
+inline void Voxelizer::prepareBoundareis() {
+	v3_p vxlBox(new Vec3f(0, 0, 0));
+	for (int x = 0; x < _size; ++x) {
+		for (int y = 0; y < _size; ++y) {
+			for (int z = 0; z < _size; ++z) {
+				vxlBox->setValue(x, y, z);
+				unsigned int voxelInt = convVoxelToInt(vxlBox);
+				unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+				if (GETBIT(tmp, voxelInt)) break;
+				else {
+					(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
+				}
+			}
+			for (int z = _size-1; z >= 0; --z) {
+				vxlBox->setValue(x, y, z);
+				unsigned int voxelInt = convVoxelToInt(vxlBox);
+				unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+				if (GETBIT(tmp, voxelInt)) break;
+				else {
+					(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
+				}
+			}
+		}
+	}
+	for (int x = 0; x < _size; ++x) {
+		for (int z = 0; z < _size; ++z) {
+			for (int y = 0; y < _size; ++y) {
+				vxlBox->setValue(x, y, z);
+				unsigned int voxelInt = convVoxelToInt(vxlBox);
+				unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+				if (GETBIT(tmp, voxelInt)) break;
+				else {
+					(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
+				}
+			}
+			for (int y = _size-1; y >= 0; --y) {
+				vxlBox->setValue(x, y, z);
+				unsigned int voxelInt = convVoxelToInt(vxlBox);
+				unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+				if (GETBIT(tmp, voxelInt)) break;
+				else {
+					(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
+				}
+			}
+		}
+	}
+
+	for (int y = 0; y < _size; ++y) {
+		for (int z = 0; z < _size; ++z) {
+			for (int x = 0; x < _size; ++x) {
+				vxlBox->setValue(x, y, z);
+				unsigned int voxelInt = convVoxelToInt(vxlBox);
+				unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+				if (GETBIT(tmp, voxelInt)) break;
+				else {
+					(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
+				}
+			}
+			for (int x = _size-1; x >= 0; --x) {
+				vxlBox->setValue(x, y, z);
+				unsigned int voxelInt = convVoxelToInt(vxlBox);
+				unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+				if (GETBIT(tmp, voxelInt)) break;
+				else {
+					(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
+				}
+			}
+		}
+	}
+//	randomPermutation(_boundaries, _numBoundaries);
+}
 
 Voxelizer::~Voxelizer() {
 	// TODO Auto-generated destructor stub
