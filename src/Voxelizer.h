@@ -53,7 +53,7 @@ class Voxelizer {
 
 	auint_p _voxelsBuffer;
 	auint_p _voxels;
-	int _size, _totalSize;
+	unsigned int _size, _totalSize, _size2;
 //	v3_p _voxelLb, _voxelUb;
 
 	v3_p _boundaries;
@@ -67,7 +67,6 @@ class Voxelizer {
 	inline void fillXZ(const int y);
 	inline void fillXY(const int z);
 public:
-	const int& getSize() const;
 	inline const auint_p& getVoxels() const;
 	inline v3_p getVoxel(const Vec3f& loc);
 	inline v3_p getVoxel(const v3_p& loc);
