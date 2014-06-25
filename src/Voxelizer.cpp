@@ -31,7 +31,7 @@ Voxelizer::Voxelizer(int size, const string& pFile): _size(size) {
 		 * Reset voxels.
 		 */
 		_voxels.reset(new auint[_totalSize], ArrayDeleter<auint>());
-		_voxelsBuffer.reset(new unsigned int[_totalSize], ArrayDeleter<unsigned int>());
+		_voxelsBuffer.reset(new auint[_totalSize], ArrayDeleter<auint>());
 		memset(_voxels.get(), 0, _totalSize * sizeof(int));
 
 		/**
@@ -110,20 +110,34 @@ inline void Voxelizer::loadFromMesh(const aiMesh* mesh) {
 		_vertices.get()[i] = Vec3f(mesh->mVertices[i].x, mesh->mVertices[i].y,
 				mesh->mVertices[i].z);
 		if (i == 0) {
-			_lb.reset(new Vec3f(mesh->mVertices[i].x, mesh->mVertices[i].y,
+			_meshLb.reset(new Vec3f(mesh->mVertices[i].x, mesh->mVertices[i].y,
 							mesh->mVertices[i].z));
-			_ub.reset(new Vec3f(mesh->mVertices[i].x, mesh->mVertices[i].y,
+			_meshUb.reset(new Vec3f(mesh->mVertices[i].x, mesh->mVertices[i].y,
 							mesh->mVertices[i].z));
 		} else {
-			_lb->ubound(_vertices.get()[i]); // bug1
-			_ub->lbound(_vertices.get()[i]); // bug2
+			_meshLb->ubound(_vertices.get()[i]); // bug1
+			_meshUb->lbound(_vertices.get()[i]); // bug2
 		}
 	}
 	//TODO this is to show
-	_lb.reset(new Vec3f((*_lb)-Vec3f(0.0001, 0.0001, 0.0001)));
-	_ub.reset(new Vec3f((*_ub)+Vec3f(0.0001, 0.0001, 0.0001)));
-//	_ub->data[0]*=4;
+	_meshLb.reset(new Vec3f((*_meshLb)-Vec3f(0.0001, 0.0001, 0.0001)));
+	_meshUb.reset(new Vec3f((*_meshUb)+Vec3f(0.0001, 0.0001, 0.0001)));
+
+
+	/**
+	*
+	*/
+	_minLb = (*_meshLb)[0];
+	_minLb = min(_minLb, (float)(*_meshLb)[1]);
+	_minLb = min(_minLb, (float)(*_meshLb)[2]);
+	_maxUb = (*_meshUb)[0];
+	_maxUb = max(_maxUb, (float)(*_meshUb)[1]);
+	_maxUb = max(_maxUb, (float)(*_meshUb)[2]);
+	_lb.reset(new Vec3f(_minLb, _minLb, _minLb));
+	_ub.reset(new Vec3f(_maxUb, _maxUb, _maxUb));
 	_bound.reset(new Vec3f((*_ub - *_lb)));
+
+
 	_faces.reset(new Vec3f[_numFaces], ArrayDeleter<Vec3f>());
 	for (size_t i = 0; i < _numFaces; ++i) {
 		_faces.get()[i] = Vec3f(mesh->mFaces[i].mIndices[0],
@@ -132,9 +146,14 @@ inline void Voxelizer::loadFromMesh(const aiMesh* mesh) {
 	randomPermutation(_faces, _numFaces);
 	Vec3f halfUnit = (*_bound) / ((float) _size*2);
 	_halfUnit.reset(new Vec3f(halfUnit));
-	_voxelLb.reset(new Vec3f(0, 0, 0));
-	_voxelUb.reset(new Vec3f(_size-1, _size-1, _size-1));
-	cout << "bound : " << *_lb << ", " << *_ub << endl;
+//	_voxelLb.reset(new Vec3f(0, 0, 0));
+//	_voxelUb.reset(new Vec3f(_size-1, _size-1, _size-1));
+	_meshVoxLB = getVoxel(_meshLb);
+	_meshVoxUB = getVoxel(_meshUb);
+
+	cout << *_meshVoxLB << ", " << *_meshVoxUB << endl;
+	cout << "whole space : " << *_lb << ", " << *_ub << endl;
+	cout << "mesh bound : " << *_meshLb << ", " << *_meshUb << endl;
 }
 
 
@@ -148,7 +167,7 @@ void Voxelizer::voxelizeSurface(const int numThread) {
 		 tp.run(boost::bind(&Voxelizer::runSurfaceTask, this, i));
 	 }
 	 tp.stop();
-	 for (int i = 0; i < _totalSize; ++i) _voxelsBuffer.get()[i] = _voxels.get()[i];
+//	 for (int i = 0; i < _totalSize; ++i) _voxelsBuffer.get()[i] = _voxels.get()[i];
 	 cout << "done." << endl;
 }
 
@@ -163,7 +182,7 @@ void Voxelizer::runSurfaceTask(const int triId) {
 	 */
 	int count = 0;
 	int esti = ((*ub)[0]-(*lb)[0]+1)*((*ub)[1]-(*lb)[1]+1)*((*ub)[2]-(*lb)[2]+1);
-	if (esti < 2500) {
+	if (true) {
 		v3_p vxlBox(new Vec3f(0, 0, 0));
 		for (int x = (*lb)[0]; x <= (*ub)[0]; ++x) {
 			for (int y = (*lb)[1]; y <= (*ub)[1]; ++y) {
@@ -229,14 +248,14 @@ void Voxelizer::voxelizeSolid(int numThread) {
 	cout << "solid voxelizing... " << endl;
 //	for (int i = 0; i < _totalSize; ++i) _voxelsBuffer.get()[i] = _voxelsBuffer.get()[i]^(~0);
 	for (int i = 0; i < _totalSize; ++i) _voxelsBuffer.get()[i] = 0;
+	prepareBoundareis(numThread);
 	ThreadPool tp(numThread);
-	prepareBoundareis();
 //	for (int i = 0; i < _numBoundaries; ++i) {
 //		tp.run(boost::bind(&Voxelizer::runSolidTask, this, i));
 //	}
 	tp.stop();
 //	for (int i = 0; i < _totalSize; ++i) _voxelsBuffer.get()[i] ^= _voxels.get()[i];
-	for (int i = 0; i < _totalSize; ++i) _voxelsBuffer.get()[i] ^= (~0);
+	for (int i = 0; i < _totalSize; ++i) _voxels.get()[i] = _voxelsBuffer.get()[i]^(~0);
 	cout << "done." << endl;
 }
 
@@ -256,7 +275,7 @@ void Voxelizer::runSolidTask(const int voxelId) {
 			(_voxels.get())[topVoxelInt / BATCH_SIZE] |= (1<<(topVoxelInt % BATCH_SIZE));
 			for (int i = 0; i < 6; i++) {
 				Vec3f newVoxel = *topVoxel + D_6[i];
-				if (!inRange(newVoxel, _voxelLb, _voxelUb)) continue;
+				if (!inRange(newVoxel, _meshVoxLB, _meshVoxUB)) continue;
 				unsigned int newVoxelInt = convVoxelToInt(newVoxel);
 				tmp = (_voxels.get())[newVoxelInt/BATCH_SIZE].load();
 				if(!GETBIT(tmp, newVoxelInt)) q.push(newVoxelInt);
@@ -290,6 +309,21 @@ inline unsigned int Voxelizer::convVoxelToInt(const Vec3f& voxel) {
 void Voxelizer::write(const string& pFile) {
 
 	cout << "writing voxels to file...";
+
+	v3_p vxlBox(new Vec3f(0, 0, 0));
+	int lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0], ly = (*_meshVoxLB)[1], uy = (*_meshVoxUB)[1], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2];
+	for (int x = 0; x < _size; ++x) {
+		for (int y = 0; y < _size; ++y) {
+			for (int z = 0; z < _size; ++z) {
+				if (x >= lx && x <= ux && y >= ly && y <= uy && z >= lz && z <= uz) continue;
+				vxlBox->setValue(x, y, z);
+				unsigned int voxelInt = convVoxelToInt(vxlBox);
+				(_voxels.get())[voxelInt / BATCH_SIZE] ^= (1<<(voxelInt % BATCH_SIZE));
+			}
+		}
+	}
+
+
 	ofstream* output = new ofstream(pFile.c_str(), ios::out | ios::binary);
 
 //	  Vector norm_translate = voxels.get_norm_translate();
@@ -324,10 +358,10 @@ void Voxelizer::write(const string& pFile) {
 	 */
 	while (index < size) {
 
-		value = GETBIT(_voxelsBuffer.get()[index/BATCH_SIZE],index);
+		value = GETBIT(_voxels.get()[index/BATCH_SIZE],index);
 		count = 0;
 		while ((index < size) && (count < 255)
-				&& (value == GETBIT(_voxelsBuffer.get()[index/BATCH_SIZE],index))) {
+				&& (value == GETBIT(_voxels.get()[index/BATCH_SIZE],index))) {
 			index++;
 			count++;
 		}
@@ -355,75 +389,97 @@ void Voxelizer::randomPermutation(const v3_p& data, int num) {
 //	cout << "random permutating... " << endl;
 }
 
-inline void Voxelizer::prepareBoundareis() {
+inline void Voxelizer::fillYZ(const int x) {
 	v3_p vxlBox(new Vec3f(0, 0, 0));
-	for (int x = 0; x < _size; ++x) {
-		for (int y = 0; y < _size; ++y) {
-			for (int z = 0; z < _size; ++z) {
-				vxlBox->setValue(x, y, z);
-				unsigned int voxelInt = convVoxelToInt(vxlBox);
-				unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
-				if (GETBIT(tmp, voxelInt)) break;
-				else {
-					(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
-				}
+	int ly = (*_meshVoxLB)[1], uy = (*_meshVoxUB)[1], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2];
+	for (int y = ly, z; y <= uy; ++y) {
+		for (z = lz; z <= uz; ++z) {
+			vxlBox->setValue(x, y, z);
+			unsigned int voxelInt = convVoxelToInt(vxlBox);
+			unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+			if (GETBIT(tmp, voxelInt)) break;
+			else {
+				(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
 			}
-			for (int z = _size-1; z >= 0; --z) {
-				vxlBox->setValue(x, y, z);
-				unsigned int voxelInt = convVoxelToInt(vxlBox);
-				unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
-				if (GETBIT(tmp, voxelInt)) break;
-				else {
-					(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
-				}
+		}
+		if (z == uz+1) continue;
+		for (z = uz; z >= lz; --z) {
+			vxlBox->setValue(x, y, z);
+			unsigned int voxelInt = convVoxelToInt(vxlBox);
+			unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+			if (GETBIT(tmp, voxelInt)) break;
+			else {
+				(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
 			}
 		}
 	}
-	for (int x = 0; x < _size; ++x) {
-		for (int z = 0; z < _size; ++z) {
-			for (int y = 0; y < _size; ++y) {
-				vxlBox->setValue(x, y, z);
-				unsigned int voxelInt = convVoxelToInt(vxlBox);
-				unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
-				if (GETBIT(tmp, voxelInt)) break;
-				else {
-					(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
-				}
-			}
-			for (int y = _size-1; y >= 0; --y) {
-				vxlBox->setValue(x, y, z);
-				unsigned int voxelInt = convVoxelToInt(vxlBox);
-				unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
-				if (GETBIT(tmp, voxelInt)) break;
-				else {
-					(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
-				}
-			}
-		}
-	}
+}
 
-	for (int y = 0; y < _size; ++y) {
-		for (int z = 0; z < _size; ++z) {
-			for (int x = 0; x < _size; ++x) {
-				vxlBox->setValue(x, y, z);
-				unsigned int voxelInt = convVoxelToInt(vxlBox);
-				unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
-				if (GETBIT(tmp, voxelInt)) break;
-				else {
-					(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
-				}
+inline void Voxelizer::fillXZ(const int y) {
+	v3_p vxlBox(new Vec3f(0, 0, 0));
+	int lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2];
+	for (int z = lz, x; z <= uz; ++z) {
+		for (x = lx; x <= ux; ++x) {
+			vxlBox->setValue(x, y, z);
+			unsigned int voxelInt = convVoxelToInt(vxlBox);
+			unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+			if (GETBIT(tmp, voxelInt)) break;
+			else {
+				(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
 			}
-			for (int x = _size-1; x >= 0; --x) {
-				vxlBox->setValue(x, y, z);
-				unsigned int voxelInt = convVoxelToInt(vxlBox);
-				unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
-				if (GETBIT(tmp, voxelInt)) break;
-				else {
-					(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
-				}
+		}
+		if (x == ux+1) continue;
+		for (x = ux; x >= lx; --x) {
+			vxlBox->setValue(x, y, z);
+			unsigned int voxelInt = convVoxelToInt(vxlBox);
+			unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+			if (GETBIT(tmp, voxelInt)) break;
+			else {
+				(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
 			}
 		}
 	}
+}
+
+inline void Voxelizer::fillXY(const int z) {
+	v3_p vxlBox(new Vec3f(0, 0, 0));
+	int ly = (*_meshVoxLB)[1], uy = (*_meshVoxUB)[1], lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0];
+	for (int x = lx, y; x <= ux; ++x) {
+		for (y = ly; y <= uy; ++y) {
+			vxlBox->setValue(x, y, z);
+			unsigned int voxelInt = convVoxelToInt(vxlBox);
+			unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+			if (GETBIT(tmp, voxelInt)) break;
+			else {
+				(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
+			}
+		}
+		if (y == uy+1) continue;
+		for (y = uy; y >= ly; --y) {
+			vxlBox->setValue(x, y, z);
+			unsigned int voxelInt = convVoxelToInt(vxlBox);
+			unsigned int tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+			if (GETBIT(tmp, voxelInt)) break;
+			else {
+				(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
+			}
+		}
+	}
+}
+
+inline void Voxelizer::prepareBoundareis(size_t numThread) {
+	ThreadPool tp(numThread);
+	int lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0], ly = (*_meshVoxLB)[1], uy = (*_meshVoxUB)[1], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2];
+	for (int x = lx; x <= ux; ++x) {
+		tp.run(boost::bind(&Voxelizer::fillYZ, this, x));
+	}
+	for (int z = lz; z <= uz; ++z) {
+		tp.run(boost::bind(&Voxelizer::fillXY, this, z));
+	}
+	for (int y = ly; y <= uy; ++y) {
+		tp.run(boost::bind(&Voxelizer::fillXZ, this, y));
+	}
+	tp.stop();
 //	randomPermutation(_boundaries, _numBoundaries);
 }
 

@@ -37,6 +37,11 @@ struct ArrayDeleter {
 };
 
 class Voxelizer {
+
+	v3_p _meshLb, _meshUb;
+	v3_p _meshVoxLB, _meshVoxUB;
+
+	float _minLb, _maxUb;
 	v3_p _lb, _ub, _bound;
 	v3_p _halfUnit;
 
@@ -46,10 +51,10 @@ class Voxelizer {
 	v3_p _vertices;
 	int _numVertices;
 
-	uint_p _voxelsBuffer;
+	auint_p _voxelsBuffer;
 	auint_p _voxels;
 	int _size, _totalSize;
-	v3_p _voxelLb, _voxelUb;
+//	v3_p _voxelLb, _voxelUb;
 
 	v3_p _boundaries;
 	int _numBoundaries;
@@ -57,7 +62,10 @@ class Voxelizer {
 //	fcl::Transform3f _identity;
 
 	inline void loadFromMesh(const aiMesh* mesh);
-	inline void prepareBoundareis();
+	inline void prepareBoundareis(size_t numThread=1);
+	inline void fillYZ(const int x);
+	inline void fillXZ(const int y);
+	inline void fillXY(const int z);
 public:
 	const int& getSize() const;
 	inline const auint_p& getVoxels() const;
