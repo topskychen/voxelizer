@@ -149,7 +149,6 @@ inline void Voxelizer::loadFromMesh(const aiMesh* mesh) {
 	_meshVoxLB = getVoxel(_meshLb);
 	_meshVoxUB = getVoxel(_meshUb);
 
-	cout << *_meshVoxLB << ", " << *_meshVoxUB << endl;
 	cout << "whole space : " << *_lb << ", " << *_ub << endl;
 	cout << "mesh bound : " << *_meshLb << ", " << *_meshUb << endl;
 }
@@ -243,64 +242,34 @@ inline int Voxelizer::bfsSurface(const tri_p& tri, const v3_p& lb, const v3_p& u
 
 void Voxelizer::voxelizeSolid(int numThread) {
 	cout << "solid voxelizing... " << endl;
+	cout << "round 1..." << endl;
 	prepareBoundareis(numThread);
-	ThreadPool tp(numThread);
-
-	int lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0], ly = (*_meshVoxLB)[1], uy = (*_meshVoxUB)[1], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2];
-	unsigned int voxelInt, tmp, newVoxelInt, count = 0;
-//	for (int x = lx; x <= ux; ++x) {
-//		for (int y = ly; y <= uy; ++y) {
-//			for (int z = lz; z <= uz; ++z) {
-//				voxelInt = x*_size2 + y*_size + z;
-//				tmp = (_voxelsBuffer.get())[voxelInt/BATCH_SIZE].load();
-//				if (!GETBIT(tmp, voxelInt)) break;
-//				else {
-//					Vec3f voxel(x, y, z), newVoxel;
-//					for (int i = 0; i < 6; ++i) {
-//						newVoxel = voxel + D_6[i];
-//						if (!inRange(newVoxel, _meshVoxLB, _meshVoxUB)) continue;
-//						newVoxelInt = convVoxelToInt(newVoxel);
-//						tmp = (_voxelsBuffer.get())[newVoxelInt/BATCH_SIZE].load();
-//						if (!GETBIT(tmp, newVoxelInt)) {
-//							tmp = (_voxels.get())[newVoxelInt/BATCH_SIZE].load();
-//							if (!GETBIT(tmp, newVoxelInt)) {
-//								++count;
-//							}
-//						}
-//					}
-//				}
-//			}
-//		}
-//	}
-	cout << count << endl;
-//	for (int i = 0; i < _numBoundaries; ++i) {
-//		tp.run(boost::bind(&Voxelizer::runSolidTask, this, i));
-//	}
-	tp.stop();
+	cout << "round 2..." << endl;
+	prepareBoundareis2(numThread);
 	for (int i = 0; i < _totalSize; ++i) _voxels.get()[i] = _voxelsBuffer.get()[i]^(~0);
 	cout << "done." << endl;
 }
 
-void Voxelizer::runSolidTask(const int voxelId) {
-	unsigned int startInt = convVoxelToInt(_boundaries.get()[voxelId]);
-	unsigned int tmp = (_voxels.get())[startInt/BATCH_SIZE].load();
-	if (GETBIT(tmp, startInt)) return;
+void Voxelizer::bfsSolid(const unsigned int startInt) {
+
+	unsigned int voxelInt = startInt, tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load() | (_voxelsBuffer.get())[voxelInt/BATCH_SIZE].load();
+	if (GETBIT(tmp, voxelInt)) return;
 	queue<unsigned int> q;
-	q.push(startInt);
+	q.push(voxelInt);
 	v3_p topVoxel(new Vec3f(0, 0, 0));
 	while (!q.empty()) {
-		unsigned int topVoxelInt = q.front();
-		tmp = (_voxels.get())[topVoxelInt/BATCH_SIZE].load();
+		voxelInt = q.front();
+		tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load() | (_voxelsBuffer.get())[voxelInt/BATCH_SIZE].load();
 		q.pop();
-		topVoxel = convIntToVoxel(topVoxelInt);
-		if (!GETBIT(tmp, topVoxelInt)) {
-			(_voxels.get())[topVoxelInt / BATCH_SIZE] |= (1<<(topVoxelInt % BATCH_SIZE));
+		topVoxel = convIntToVoxel(voxelInt);
+		if (!GETBIT(tmp, voxelInt)) {
+			(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<<(voxelInt % BATCH_SIZE));
 			for (int i = 0; i < 6; i++) {
 				Vec3f newVoxel = *topVoxel + D_6[i];
 				if (!inRange(newVoxel, _meshVoxLB, _meshVoxUB)) continue;
-				unsigned int newVoxelInt = convVoxelToInt(newVoxel);
-				tmp = (_voxels.get())[newVoxelInt/BATCH_SIZE].load();
-				if(!GETBIT(tmp, newVoxelInt)) q.push(newVoxelInt);
+				voxelInt = convVoxelToInt(newVoxel);
+				tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load() | (_voxelsBuffer.get())[voxelInt/BATCH_SIZE].load();
+				if(!GETBIT(tmp, voxelInt)) q.push(voxelInt);
 			}
 		}
 
@@ -311,8 +280,8 @@ inline bool Voxelizer::inRange(const Vec3f& vc, const v3_p& lb, const v3_p& ub) 
 	return vc[0]>=(*lb)[0] && vc[0]<=(*ub)[0] && vc[1]>=(*lb)[1] && vc[1]<=(*ub)[1] && vc[2]>=(*lb)[2] && vc[2]<=(*ub)[2];
 }
 
-inline bool Voxelizer::inRange(const int x, const int y, const int z, const v3_p& lb, const v3_p& ub) {
-	return x>=(*lb)[0] && x<=(*ub)[0] && y>=(*lb)[1] && y<=(*ub)[1] && z>=(*lb)[2] && z<=(*ub)[2];
+inline bool Voxelizer::inRange(const int& x, const int& y, const int& z, const int& lx, const int& ly, const int& lz, const int& ux, const int& uy, const int& uz) {
+	return x>=lx && x<=ux && y>=ly && y<=uy && z>=lz && z<=uz;
 }
 
 
@@ -361,6 +330,44 @@ inline void Voxelizer::fillYZ(const int x) {
 	}
 }
 
+inline void Voxelizer::fillYZ2(const int x) {
+	int lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0], ly = (*_meshVoxLB)[1], uy = (*_meshVoxUB)[1], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2], nx, ny;
+	unsigned int voxelInt, tmp;
+	for (int y = ly, z; y <= uy; ++y) {
+		for (z = lz; z <= uz; ++z) {
+			voxelInt = x*_size2 + y*_size + z;
+			tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+			if (GETBIT(tmp, voxelInt)) break;
+			else {
+				for (int i = 0; i < 4; ++i) {
+					nx = x+DI_4[i][0]; ny = y+DI_4[i][1];
+					if (nx>=lx && nx<=ux && ny>=ly && ny<=uy) {
+						voxelInt = nx*_size2 + ny*_size + z;
+						tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load() | (_voxelsBuffer.get())[voxelInt/BATCH_SIZE].load();
+						if (!GETBIT(tmp, voxelInt)) bfsSolid(voxelInt);
+					}
+				}
+			}
+		}
+		if (z == uz+1) continue;
+		for (z = uz; z >= lz; --z) {
+			voxelInt = x*_size2 + y*_size + z;
+			tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+			if (GETBIT(tmp, voxelInt)) break;
+			else {
+				for (int i = 0; i < 4; ++i) {
+					nx = x+DI_4[i][0]; ny = y+DI_4[i][1];
+					if (nx>=lx && nx<=ux && ny>=ly && ny<=uy) {
+						voxelInt = nx*_size2 + ny*_size + z;
+						tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load() | (_voxelsBuffer.get())[voxelInt/BATCH_SIZE].load();
+						if (!GETBIT(tmp, voxelInt)) bfsSolid(voxelInt);
+					}
+				}
+			}
+		}
+	}
+}
+
 inline void Voxelizer::fillXZ(const int y) {
 	int lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2];
 	unsigned int voxelInt, tmp;
@@ -380,6 +387,44 @@ inline void Voxelizer::fillXZ(const int y) {
 			if (GETBIT(tmp, voxelInt)) break;
 			else {
 				(_voxelsBuffer.get())[voxelInt / BATCH_SIZE] |= (1<< (voxelInt % BATCH_SIZE));
+			}
+		}
+	}
+}
+
+inline void Voxelizer::fillXZ2(const int y) {
+	int lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0], ly = (*_meshVoxLB)[1], uy = (*_meshVoxUB)[1], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2], ny, nz;
+	unsigned int voxelInt, tmp;
+	for (int z = lz, x; z <= uz; ++z) {
+		for (x = lx; x <= ux; ++x) {
+			voxelInt = x*_size2 + y*_size + z;
+			tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+			if (GETBIT(tmp, voxelInt)) break;
+			else {
+				for (int i = 0; i < 4; ++i) {
+					ny = y+DI_4[i][0]; nz = z+DI_4[i][1];
+					if (nz>=lz && nz<=uz && ny>=ly && ny<=uy) {
+						voxelInt = x*_size2 + ny*_size + nz;
+						tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load() | (_voxelsBuffer.get())[voxelInt/BATCH_SIZE].load();
+						if (!GETBIT(tmp, voxelInt)) bfsSolid(voxelInt);
+					}
+				}
+			}
+		}
+		if (x == ux+1) continue;
+		for (x = ux; x >= lx; --x) {
+			voxelInt = x*_size2 + y*_size + z;
+			tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+			if (GETBIT(tmp, voxelInt)) break;
+			else {
+				for (int i = 0; i < 4; ++i) {
+					ny = y+DI_4[i][0]; nz = z+DI_4[i][1];
+					if (nz>=lz && nz<=uz && ny>=ly && ny<=uy) {
+						voxelInt = x*_size2 + ny*_size + nz;
+						tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load() | (_voxelsBuffer.get())[voxelInt/BATCH_SIZE].load();
+						if (!GETBIT(tmp, voxelInt)) bfsSolid(voxelInt);
+					}
+				}
 			}
 		}
 	}
@@ -409,21 +454,73 @@ inline void Voxelizer::fillXY(const int z) {
 	}
 }
 
+inline void Voxelizer::fillXY2(const int z) {
+	int lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0], ly = (*_meshVoxLB)[1], uy = (*_meshVoxUB)[1], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2], nx, nz;
+	unsigned int voxelInt, tmp;
+	for (int x = lx, y; x <= ux; ++x) {
+		for (y = ly; y <= uy; ++y) {
+			voxelInt = x*_size2 + y*_size + z;
+			tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+			if (GETBIT(tmp, voxelInt)) break;
+			else {
+				for (int i = 0; i < 4; ++i) {
+					nx = x+DI_4[i][0]; nz = z+DI_4[i][1];
+					if (nz>=lz && nz<=uz && nx>=lx && nx<=ux) {
+						voxelInt = nx*_size2 + y*_size + nz;
+						tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load() | (_voxelsBuffer.get())[voxelInt/BATCH_SIZE].load();
+						if (!GETBIT(tmp, voxelInt)) bfsSolid(voxelInt);
+					}
+				}
+			}
+		}
+		if (y == uy+1) continue;
+		for (y = uy; y >= ly; --y) {
+			voxelInt = x*_size2 + y*_size + z;
+			tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
+			if (GETBIT(tmp, voxelInt)) break;
+			else {
+				for (int i = 0; i < 4; ++i) {
+					nx = x+DI_4[i][0]; nz = z+DI_4[i][1];
+					if (nz>=lz && nz<=uz && nx>=lx && nx<=ux) {
+						voxelInt = nx*_size2 + y*_size + nz;
+						tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load() | (_voxelsBuffer.get())[voxelInt/BATCH_SIZE].load();
+						if (!GETBIT(tmp, voxelInt)) bfsSolid(voxelInt);
+					}
+				}
+			}
+		}
+	}
+}
+
 inline void Voxelizer::prepareBoundareis(size_t numThread) {
 	ThreadPool tp(numThread);
 	int lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0], ly = (*_meshVoxLB)[1], uy = (*_meshVoxUB)[1], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2];
 	for (int x = lx; x <= ux; ++x) {
 		tp.run(boost::bind(&Voxelizer::fillYZ, this, x));
 	}
-	for (int z = lz; z <= uz; ++z) {
-		tp.run(boost::bind(&Voxelizer::fillXY, this, z));
-	}
 	for (int y = ly; y <= uy; ++y) {
 		tp.run(boost::bind(&Voxelizer::fillXZ, this, y));
 	}
+	for (int z = lz; z <= uz; ++z) {
+		tp.run(boost::bind(&Voxelizer::fillXY, this, z));
+	}
 	tp.stop();
+}
 
-//	randomPermutation(_boundaries, _numBoundaries);
+
+inline void Voxelizer::prepareBoundareis2(size_t numThread) {
+	ThreadPool tp(numThread);
+	int lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0], ly = (*_meshVoxLB)[1], uy = (*_meshVoxUB)[1], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2];
+	for (int x = lx; x <= ux; ++x) {
+		tp.run(boost::bind(&Voxelizer::fillYZ2, this, x));
+	}
+	for (int z = lz; z <= uz; ++z) {
+		tp.run(boost::bind(&Voxelizer::fillXY2, this, z));
+	}
+	for (int y = ly; y <= uy; ++y) {
+		tp.run(boost::bind(&Voxelizer::fillXZ2, this, y));
+	}
+	tp.stop();
 }
 
 
@@ -503,8 +600,10 @@ void Voxelizer::writeForView(const string& pFile) {
 	cout << "writing voxels to file..." << endl;
 
 	v3_p vxlBox(new Vec3f(0, 0, 0));
-	int lx = 0, ux = _size - 1, ly = 0, uy = _size - 1, lz = 0, uz = _size;
+	int lx = 0, ux = _size - 1, ly = 0, uy = _size - 1, lz = 0, uz = _size - 1;
 	int bx = ux-lx+1, by = uy-ly+1, bz = uz-lz+1;
+	int meshLx = (*_meshVoxLB)[0], meshLy = (*_meshVoxLB)[1], meshLz = (*_meshVoxLB)[2];
+	int meshUx = (*_meshVoxUB)[0], meshUy = (*_meshVoxUB)[1], meshUz = (*_meshVoxUB)[2];
 
 	ofstream* output = new ofstream(pFile.c_str(), ios::out | ios::binary);
 
@@ -537,9 +636,9 @@ void Voxelizer::writeForView(const string& pFile) {
 	int x = lx, y = ly, z = lz;
 	while (x <= ux) {
 		index = x*_size2 + y*_size + z;
-		value = inRange(x, y, z, _meshVoxLB, _meshVoxUB) ? GETBIT(_voxels.get()[index/BATCH_SIZE],index) : 0;
+		value = inRange(x, y, z, meshLx, meshLy, meshLz, meshUx, meshUy, meshUz) ? GETBIT(_voxels.get()[index/BATCH_SIZE],index) : 0;
 		count = 0;
-		while ((x <= ux) && (count < 255) && (value == (inRange(x, y, z, _meshVoxLB, _meshVoxUB) ? GETBIT(_voxels.get()[index/BATCH_SIZE],index) : 0))) {
+		while ((x <= ux) && (count < 255) && (value == (inRange(x, y, z, meshLx, meshLy, meshLz, meshUx, meshUy, meshUz) ? GETBIT(_voxels.get()[index/BATCH_SIZE],index) : 0))) {
 			z++;
 			if (z > uz) {
 				z = lz;
@@ -562,6 +661,7 @@ void Voxelizer::writeForView(const string& pFile) {
 	cout << "wrote " << total_ones << " set voxels out of " << bx*by*bz << ", in "
 			<< bytes_written << " bytes" << endl;
 }
+
 
 Voxelizer::~Voxelizer() {
 	// TODO Auto-generated destructor stub

@@ -53,6 +53,13 @@ const Vec3f D_8[] = {
 	Vec3f(-1, -1, -1)
 };
 
+const int DI_4[4][2] = {
+	{0, 1},
+	{0, -1},
+	{1, 0},
+	{-1, 0}
+};
+
 const Vec3f D_6[] = {
 	Vec3f(0, 0, -1),
 	Vec3f(0, 0, 1),
@@ -90,10 +97,5 @@ const Vec3f D_26[] = {
 	Vec3f(1, 1,0),
 	Vec3f(1, 1,1)
 };
-//class Commons {
-//public:
-//	Commons();
-//	virtual ~Commons();
-//};
 
 #endif /* COMMONS_H_ */

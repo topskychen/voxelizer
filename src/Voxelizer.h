@@ -54,18 +54,18 @@ class Voxelizer {
 	auint_p _voxelsBuffer;
 	auint_p _voxels;
 	unsigned int _size, _totalSize, _size2;
-//	v3_p _voxelLb, _voxelUb;
-
-	v3_p _boundaries;
-	int _numBoundaries;
-
-//	fcl::Transform3f _identity;
 
 	inline void loadFromMesh(const aiMesh* mesh);
 	inline void prepareBoundareis(size_t numThread=1);
+	inline void prepareBoundareis2(size_t numThread=1);
 	inline void fillYZ(const int x);
 	inline void fillXZ(const int y);
 	inline void fillXY(const int z);
+	inline void fillYZ2(const int x);
+	inline void fillXZ2(const int y);
+	inline void fillXY2(const int z);
+	inline bool inRange(const Vec3f& vc, const v3_p& lb, const v3_p& ub);
+	inline bool inRange(const int& x, const int& y, const int& z, const int& lx, const int& ly, const int& lz, const int& ux, const int& uy, const int& uz);
 public:
 	inline const auint_p& getVoxels() const;
 	inline v3_p getVoxel(const Vec3f& loc);
@@ -73,8 +73,6 @@ public:
 	inline v3_p getLoc(const v3_p& voxel);
 	inline v3_p getLoc(const Vec3f& voxel);
 	inline tri_p getTri(const int triId);
-	inline bool inRange(const Vec3f& vc, const v3_p& lb, const v3_p& ub);
-	inline bool inRange(const int x, const int y, const int z, const v3_p& lb, const v3_p& ub);
 	inline v3_p convIntToVoxel(const unsigned int& coord);
 	inline unsigned int convVoxelToInt(const v3_p& voxel);
 	inline unsigned int convVoxelToInt(const Vec3f& voxel);
@@ -83,7 +81,7 @@ public:
 	void voxelizeSurface(int numThread=1);
 	void runSurfaceTask(const int triId);
 	void voxelizeSolid(int numThread=1);
-	void runSolidTask(const int voxelId);
+	void bfsSolid(const unsigned int voxelId);
 	void collectResult();
 	void write(const string& pFile);
 	void writeForView(const string& pFile);

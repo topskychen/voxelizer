@@ -44,6 +44,7 @@ int main(int args, char* argv[]) {
 		cout << "solid voxelization "; timer.printTimeInS();
 		timer.restart();
 		voxelizer.writeForView(outputFile);
+		// voxelizer.write(outputFile);
 		timer.stop();
 		cout << "writing file "; timer.printTimeInS();
 	} else {
