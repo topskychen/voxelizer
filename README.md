@@ -1,6 +1,6 @@
 
 ## Overview
-===========
+
 This project voxelizes the meshes in STL file ***without*** the condition of *watertight*. Basically, the project can be summarized into two steps:
 
 - Surface voxelization
@@ -23,7 +23,7 @@ This project voxelizes the meshes in STL file ***without*** the condition of *wa
 - [TODO] try to fill the inside voxels, such that the time complexity is proportional to size of the result voxels.
 
 ## Installation
-===============
+
 
 This project requires libraries (dependencies) as follow:
 
@@ -46,7 +46,7 @@ cmake ..
 Next, in linux, use `make` to compile the code. 
 
 ## How to use
-=============
+
 
 - Input
 	- grid size, e.g., 256
@@ -84,7 +84,7 @@ while (index < totalSize) {
 
 An example is: `./Voxelizer 256 4 ../data/kawada-hironx.stl ../data/kawada-hironx.vox`.
 ## Directories
-==============
+
 This project has folders and files as follow:
 
  - *src*
