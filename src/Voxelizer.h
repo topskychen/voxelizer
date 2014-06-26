@@ -74,6 +74,7 @@ public:
 	inline v3_p getLoc(const Vec3f& voxel);
 	inline tri_p getTri(const int triId);
 	inline bool inRange(const Vec3f& vc, const v3_p& lb, const v3_p& ub);
+	inline bool inRange(const int x, const int y, const int z, const v3_p& lb, const v3_p& ub);
 	inline v3_p convIntToVoxel(const unsigned int& coord);
 	inline unsigned int convVoxelToInt(const v3_p& voxel);
 	inline unsigned int convVoxelToInt(const Vec3f& voxel);
@@ -85,6 +86,7 @@ public:
 	void runSolidTask(const int voxelId);
 	void collectResult();
 	void write(const string& pFile);
+	void writeForView(const string& pFile);
 	Voxelizer(int size, const string& pFile);
 	virtual ~Voxelizer();
 };

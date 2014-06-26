@@ -37,14 +37,15 @@ int main(int args, char* argv[]) {
 		Voxelizer voxelizer(gridSize, inputFile);
 		voxelizer.voxelizeSurface(numThread);
 		timer.stop();
-		timer.printTimeInS();
+		cout << "surface voxelization "; timer.printTimeInS();
+		timer.restart();
 		voxelizer.voxelizeSolid(numThread);
 		timer.stop();
-		timer.printTimeInS();
+		cout << "solid voxelization "; timer.printTimeInS();
 		timer.restart();
-		voxelizer.write(outputFile);
+		voxelizer.writeForView(outputFile);
 		timer.stop();
-		timer.printTimeInS();
+		cout << "writing file "; timer.printTimeInS();
 	} else {
 		cout << "grid_size num_threads STL_file output_file" << endl;
 	}

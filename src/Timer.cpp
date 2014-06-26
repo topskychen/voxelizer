@@ -34,5 +34,5 @@ Timer::~Timer() {
 }
 
 void Timer::printTimeInS() {
-	std::cout << "Time elapses " << timeInS() << " s." << std:: endl;
+	std::cout << "consumes " << timeInS() << " s." << std:: endl;
 }

@@ -32,7 +32,7 @@ Voxelizer::Voxelizer(int size, const string& pFile): _size(size) {
 		_voxels.reset(new auint[_totalSize], ArrayDeleter<auint>());
 		_voxelsBuffer.reset(new auint[_totalSize], ArrayDeleter<auint>());
 		memset(_voxels.get(), 0, _totalSize * sizeof(int));
-		memset(_voxelsBuffer.get(), 0, _totalSize * sizeof(int));
+ 		memset(_voxelsBuffer.get(), 0, _totalSize * sizeof(int));
 
 		/**
 		 * Store info.
@@ -119,7 +119,7 @@ inline void Voxelizer::loadFromMesh(const aiMesh* mesh) {
 			_meshUb->lbound(_vertices.get()[i]); // bug2
 		}
 	}
-	//TODO this is to show
+
 	_meshLb.reset(new Vec3f((*_meshLb)-Vec3f(0.0001, 0.0001, 0.0001)));
 	_meshUb.reset(new Vec3f((*_meshUb)+Vec3f(0.0001, 0.0001, 0.0001)));
 
@@ -156,7 +156,7 @@ inline void Voxelizer::loadFromMesh(const aiMesh* mesh) {
 
 
 /**
- * Run tasks.
+ * voxelize the surface.
  */
 void Voxelizer::voxelizeSurface(const int numThread) {
 	 cout << "surface voxelizing... " << endl;
@@ -165,10 +165,12 @@ void Voxelizer::voxelizeSurface(const int numThread) {
 		 tp.run(boost::bind(&Voxelizer::runSurfaceTask, this, i));
 	 }
 	 tp.stop();
-//	 for (int i = 0; i < _totalSize; ++i) _voxelsBuffer.get()[i] = _voxels.get()[i];
 	 cout << "done." << endl;
 }
 
+/**
+ * Details of surface task.
+ */
 void Voxelizer::runSurfaceTask(const int triId) {
 	tri_p tri = getTri(triId);
 	tri->computeLocalAABB();
@@ -177,17 +179,17 @@ void Voxelizer::runSurfaceTask(const int triId) {
 	int lx = (*lb)[0], ux = (*ub)[0], ly = (*lb)[1], uy = (*ub)[1], lz = (*lb)[2], uz = (*ub)[2];
 
 	/**
-	 * may optimize with bfs here;
+	 * when the estimated voxels are too large, optimize with bfs.
 	 */
 	int count = 0;
-	int esti = ((*ub)[0]-(*lb)[0]+1)*((*ub)[1]-(*lb)[1]+1)*((*ub)[2]-(*lb)[2]+1);
-	if (true) {
+	int esti = min(ux - lx, min(uy - ly, uz - lz));
+	if (esti < 100) {
 		v3_p vxlBox(new Vec3f(0, 0, 0));
 		unsigned int voxelInt, tmp;
 		for (int x = lx, y, z; x <= ux; ++x) {
 			for (y = ly; y <= uy; ++y) {
-				for (z = lz; z <= ux; ++z) {
-					voxelInt = x*_size2+y*_size+z;
+				for (z = lz; z <= uz; ++z) {
+					voxelInt = x*_size2 + y*_size + z;
 					tmp = (_voxels.get())[voxelInt / BATCH_SIZE].load();
 					if (GETBIT(tmp, voxelInt))
 						continue;
@@ -243,6 +245,34 @@ void Voxelizer::voxelizeSolid(int numThread) {
 	cout << "solid voxelizing... " << endl;
 	prepareBoundareis(numThread);
 	ThreadPool tp(numThread);
+
+	int lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0], ly = (*_meshVoxLB)[1], uy = (*_meshVoxUB)[1], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2];
+	unsigned int voxelInt, tmp, newVoxelInt, count = 0;
+//	for (int x = lx; x <= ux; ++x) {
+//		for (int y = ly; y <= uy; ++y) {
+//			for (int z = lz; z <= uz; ++z) {
+//				voxelInt = x*_size2 + y*_size + z;
+//				tmp = (_voxelsBuffer.get())[voxelInt/BATCH_SIZE].load();
+//				if (!GETBIT(tmp, voxelInt)) break;
+//				else {
+//					Vec3f voxel(x, y, z), newVoxel;
+//					for (int i = 0; i < 6; ++i) {
+//						newVoxel = voxel + D_6[i];
+//						if (!inRange(newVoxel, _meshVoxLB, _meshVoxUB)) continue;
+//						newVoxelInt = convVoxelToInt(newVoxel);
+//						tmp = (_voxelsBuffer.get())[newVoxelInt/BATCH_SIZE].load();
+//						if (!GETBIT(tmp, newVoxelInt)) {
+//							tmp = (_voxels.get())[newVoxelInt/BATCH_SIZE].load();
+//							if (!GETBIT(tmp, newVoxelInt)) {
+//								++count;
+//							}
+//						}
+//					}
+//				}
+//			}
+//		}
+//	}
+	cout << count << endl;
 //	for (int i = 0; i < _numBoundaries; ++i) {
 //		tp.run(boost::bind(&Voxelizer::runSolidTask, this, i));
 //	}
@@ -281,6 +311,10 @@ inline bool Voxelizer::inRange(const Vec3f& vc, const v3_p& lb, const v3_p& ub) 
 	return vc[0]>=(*lb)[0] && vc[0]<=(*ub)[0] && vc[1]>=(*lb)[1] && vc[1]<=(*ub)[1] && vc[2]>=(*lb)[2] && vc[2]<=(*ub)[2];
 }
 
+inline bool Voxelizer::inRange(const int x, const int y, const int z, const v3_p& lb, const v3_p& ub) {
+	return x>=(*lb)[0] && x<=(*ub)[0] && y>=(*lb)[1] && y<=(*ub)[1] && z>=(*lb)[2] && z<=(*ub)[2];
+}
+
 
 inline v3_p Voxelizer::convIntToVoxel(const unsigned int& coord) {
 	v3_p voxel(new Vec3f(coord/_size2, (coord/_size)%_size, coord%_size));
@@ -296,105 +330,11 @@ inline unsigned int Voxelizer::convVoxelToInt(const Vec3f& voxel) {
 }
 
 
-/**
- * Write to file, with simple compression
- */
-void Voxelizer::write(const string& pFile) {
-
-	cout << "writing voxels to file..." << endl;
-
-	v3_p vxlBox(new Vec3f(0, 0, 0));
-	int lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0], ly = (*_meshVoxLB)[1], uy = (*_meshVoxUB)[1], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2];
-	int bx = ux-lx+1, by = uy-ly+1, bz = uz-lz+1;
-
-	ofstream* output = new ofstream(pFile.c_str(), ios::out | ios::binary);
-
-//	  Vector norm_translate = voxels.get_norm_translate();
-//	  Float norm_scale = voxels.get_norm_scale();
-
-	Vec3f& norm_translate = (*_meshLb);
-	float norm_scale = ((*_meshUb-*_meshLb).norm());
-
-	//
-	// write header
-	//
-	*output << "#binvox 1" << endl;
-	//  *output << "bbox [-1,1][-1,1][-1,1]" << endl;  // no use for 'bbox'
-	//  *output << "dim [" << depth << "," << height << "," << width << "]" << endl;
-	//  *output << "type RLE" << endl;
-	*output << "dim " << bx  << " " << by << " " << bz << endl;
-	cout << "dim : " << bx << " x " << by << " x " << bz << endl;
-	*output << "translate " << -norm_translate[0] << " " << -norm_translate[2]
-			<< " " << -norm_translate[1] << endl;
-	*output << "scale " << norm_scale << endl;
-	*output << "data" << endl;
-
-	byte value;
-	byte count;
-	int index = 0;
-	int bytes_written = 0;
-	int total_ones = 0;
-
-	/**
-	 * Compression
-	 */
-	int x = lx, y = ly, z = lz;
-	while (x <= ux) {
-		index = x*_size2 + y*_size + z;
-		value = GETBIT(_voxels.get()[index/BATCH_SIZE],index);
-		count = 0;
-		while ((x <= ux) && (count < 255) && (value == GETBIT(_voxels.get()[index/BATCH_SIZE],index))) {
-			z++;
-			if (z > uz) {
-				z = lz;
-				y++;
-				if (y > uy) {
-					y = ly;
-					x++;
-				}
-			}
-			index = x*_size2 + y*_size + z;
-			count++;
-		}
-		if (value)
-			total_ones += count;
-
-		*output << value << count;  // inverted...
-		bytes_written += 2;
-
-	}
-
-//	while (index < size) {
-//
-//		value = GETBIT(_voxels.get()[index/BATCH_SIZE],index);
-//		count = 0;
-//		while ((index < size) && (count < 255)
-//				&& (value == GETBIT(_voxels.get()[index/BATCH_SIZE],index))) {
-//			index++;
-//			count++;
-//		}
-//		//    value = 1 - value;
-//		if (value)
-//			total_ones += count;
-//
-//		*output << value << count;  // inverted...
-//		bytes_written += 2;
-//
-//	}  // while
-
-	output->close();
-
-	cout << "wrote " << total_ones << " set voxels out of " << bx*by*bz << ", in "
-			<< bytes_written << " bytes" << endl;
-}
-
 void Voxelizer::randomPermutation(const v3_p& data, int num) {
-
 	for (int i = 0, id; i < num; ++i) {
 		id = random(i, num-1);
 		if (i != id) swap((data.get())[i], (data.get())[id]);
 	}
-//	cout << "random permutating... " << endl;
 }
 
 inline void Voxelizer::fillYZ(const int x) {
@@ -482,7 +422,145 @@ inline void Voxelizer::prepareBoundareis(size_t numThread) {
 		tp.run(boost::bind(&Voxelizer::fillXZ, this, y));
 	}
 	tp.stop();
+
 //	randomPermutation(_boundaries, _numBoundaries);
+}
+
+
+/**
+ * Write to file, with simple compression
+ */
+void Voxelizer::write(const string& pFile) {
+
+	cout << "writing voxels to file..." << endl;
+
+	v3_p vxlBox(new Vec3f(0, 0, 0));
+	int lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0], ly = (*_meshVoxLB)[1], uy = (*_meshVoxUB)[1], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2];
+	int bx = ux-lx+1, by = uy-ly+1, bz = uz-lz+1;
+
+	ofstream* output = new ofstream(pFile.c_str(), ios::out | ios::binary);
+
+//	  Vector norm_translate = voxels.get_norm_translate();
+//	  Float norm_scale = voxels.get_norm_scale();
+
+	Vec3f& norm_translate = (*_meshLb);
+	float norm_scale = ((*_meshUb-*_meshLb).norm());
+
+	//
+	// write header
+	//
+	*output << "#binvox 1" << endl;
+	*output << "dim " << bx  << " " << by << " " << bz << endl;
+	cout << "dim : " << bx << " x " << by << " x " << bz << endl;
+	*output << "translate " << -norm_translate[0] << " " << -norm_translate[2]
+			<< " " << -norm_translate[1] << endl;
+	*output << "scale " << norm_scale << endl;
+	*output << "data" << endl;
+
+	byte value;
+	byte count;
+	int index = 0;
+	int bytes_written = 0;
+	int total_ones = 0;
+
+	/**
+	 * Compression
+	 */
+	int x = lx, y = ly, z = lz;
+	while (x <= ux) {
+		index = x*_size2 + y*_size + z;
+		value = GETBIT(_voxels.get()[index/BATCH_SIZE],index);
+		count = 0;
+		while ((x <= ux) && (count < 255) && (value == GETBIT(_voxels.get()[index/BATCH_SIZE],index))) {
+			z++;
+			if (z > uz) {
+				z = lz;
+				y++;
+				if (y > uy) {
+					y = ly;
+					x++;
+				}
+			}
+			index = x*_size2 + y*_size + z;
+			count++;
+		}
+		if (value)
+			total_ones += count;
+		*output << value << count;  // inverted...
+		bytes_written += 2;
+	}
+
+	output->close();
+	cout << "wrote " << total_ones << " set voxels out of " << bx*by*bz << ", in "
+			<< bytes_written << " bytes" << endl;
+}
+
+/**
+ * Write to file, with simple compression
+ */
+void Voxelizer::writeForView(const string& pFile) {
+
+	cout << "writing voxels to file..." << endl;
+
+	v3_p vxlBox(new Vec3f(0, 0, 0));
+	int lx = 0, ux = _size - 1, ly = 0, uy = _size - 1, lz = 0, uz = _size;
+	int bx = ux-lx+1, by = uy-ly+1, bz = uz-lz+1;
+
+	ofstream* output = new ofstream(pFile.c_str(), ios::out | ios::binary);
+
+//	  Vector norm_translate = voxels.get_norm_translate();
+//	  Float norm_scale = voxels.get_norm_scale();
+
+	Vec3f& norm_translate = (*_lb);
+	float norm_scale = (*_bound).norm();
+
+	//
+	// write header
+	//
+	*output << "#binvox 1" << endl;
+	*output << "dim " << bx  << " " << by << " " << bz << endl;
+	cout << "dim : " << bx << " x " << by << " x " << bz << endl;
+	*output << "translate " << -norm_translate[0] << " " << -norm_translate[2]
+			<< " " << -norm_translate[1] << endl;
+	*output << "scale " << norm_scale << endl;
+	*output << "data" << endl;
+
+	byte value;
+	byte count;
+	int index = 0;
+	int bytes_written = 0;
+	int total_ones = 0;
+
+	/**
+	 * Compression
+	 */
+	int x = lx, y = ly, z = lz;
+	while (x <= ux) {
+		index = x*_size2 + y*_size + z;
+		value = inRange(x, y, z, _meshVoxLB, _meshVoxUB) ? GETBIT(_voxels.get()[index/BATCH_SIZE],index) : 0;
+		count = 0;
+		while ((x <= ux) && (count < 255) && (value == (inRange(x, y, z, _meshVoxLB, _meshVoxUB) ? GETBIT(_voxels.get()[index/BATCH_SIZE],index) : 0))) {
+			z++;
+			if (z > uz) {
+				z = lz;
+				y++;
+				if (y > uy) {
+					y = ly;
+					x++;
+				}
+			}
+			index = x*_size2 + y*_size + z;
+			count++;
+		}
+		if (value)
+			total_ones += count;
+		*output << value << count;  // inverted...
+		bytes_written += 2;
+	}
+
+	output->close();
+	cout << "wrote " << total_ones << " set voxels out of " << bx*by*bz << ", in "
+			<< bytes_written << " bytes" << endl;
 }
 
 Voxelizer::~Voxelizer() {
