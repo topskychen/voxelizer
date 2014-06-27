@@ -25,10 +25,6 @@ const int BATCH_SIZE = 32;
 
 #define GETBIT(x,i) ((x>>(i%BATCH_SIZE))&1)
 
-class Voxelizer;
-typedef boost::shared_ptr<Voxelizer> vxlizer_p;
-
-
 template<typename T>
 struct ArrayDeleter {
 	void operator ()(T const * p) {
@@ -39,12 +35,13 @@ struct ArrayDeleter {
 class Voxelizer {
 
 	bool _isInit;
+
 	v3_p _meshLb, _meshUb; // location
 	v3_p _meshVoxLB, _meshVoxUB; // voxels of location
 
 	float _minLb, _maxUb;
-	v3_p _lb, _ub, _bound;
-	v3_p _halfUnit;
+	v3_p _lb, _ub, _bound; // lowerBound and upperBound of the whole space
+	v3_p _halfUnit; // half size of the unit
 
 	v3_p _faces;
 	int _numFaces;
@@ -60,7 +57,7 @@ class Voxelizer {
 	inline void loadFromMesh(const aiMesh* mesh);
 	inline void runSolidTask(size_t numThread=1);
 	inline void runSolidTask2(size_t numThread=1);
-	void runSurfaceTask(const int triId);
+	inline void runSurfaceTask(const int triId);
 	inline void fillYZ(const int x);
 	inline void fillXZ(const int y);
 	inline void fillXY(const int z);
@@ -69,7 +66,6 @@ class Voxelizer {
 	inline void fillXY2(const int z);
 	inline bool inRange(const Vec3f& vc, const v3_p& lb, const v3_p& ub);
 	inline bool inRange(const int& x, const int& y, const int& z, const int& lx, const int& ly, const int& lz, const int& ux, const int& uy, const int& uz);
-public:
 	inline const auint_p& getVoxels() const;
 	inline v3_p getVoxel(const Vec3f& loc);
 	inline v3_p getVoxel(const v3_p& loc);
@@ -81,10 +77,11 @@ public:
 	inline unsigned int convVoxelToInt(const Vec3f& voxel);
 	inline int bfsSurface(const tri_p& tri, const v3_p& lb, const v3_p& ub);
 	void randomPermutation(const v3_p& data, int num);
+	void bfsSolid(const unsigned int voxelId);
+public:
+
 	void voxelizeSurface(int numThread=1);
 	void voxelizeSolid(int numThread=1);
-	void bfsSolid(const unsigned int voxelId);
-	void collectResult();
 	void write(const string& pFile);
 	void writeForView(const string& pFile);
 	Voxelizer(int size, const string& pFile);
