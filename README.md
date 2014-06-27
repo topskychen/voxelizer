@@ -70,14 +70,15 @@ Next, in linux, use `make` in 'build' directory to compile the code.
 		- 'x''y''z'... (the voxel coordinate in grid system, e.g, '0''1''0')
 
 For your reference, the pesudo output code is:
-'''C++
+
+```C++
 ofstream* output = new ofstream(pFile.c_str(), ios::out | ios::binary);
 *output << grid_size;
 *output << lowerbound_x << lowerbound_y << lowerbound_z;
 *output << voxel_size;
 for (x,y,z) in voxels:
 	*output << x << y << z;
-'''
+```
 
 When you are in 'build' directory, an example is: `./bin/Voxelizer 256 4 ../data/kawada-hironx.stl ../data/kawada-hironx.vox`.
 
