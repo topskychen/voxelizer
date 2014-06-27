@@ -20,8 +20,8 @@ This project voxelizes the meshes in STL file ***without*** the condition of *wa
 - Bit compression to record the voxel information. (x, y, z) -> x\*size\*size + y\*size + size, and it is further compressed with 32-bit unsigned int. Bit 1 means this location is occupied, and 0 means not.
 - Use atomic<> for each voxel to guarantee the correctness when multi threads write the results, and it gives better parallel performance.
 - Estimate the bounding box size of a triangle to guide the right method to check collision.
-- The plain flood fill algorithm is time-consuming. I optimize it as follows. We fill the voxels along each axis. For instance, fix (x, y), enumerate z in [0, maxz], if some a voxel at (x, y, z) is occupied by a surface voxel, break the loop. Like lighting along z axis, and stop when meeting the surface. This idea is similar to flood fill but is much more efficient. And it's worthy noting, after this algorithm, there are some *holes*. But these holes are only a few, so we can use flood fill again on them now.
-- Random permutation to get better parallel performance.
+- The plain flood fill algorithm is time-consuming. I optimize it as follows. We fill the voxels along each axis. For instance, fix (x, y), enumerate z in [0, maxz], if a voxel at (x, y, z) is occupied by a surface voxel, break the loop. Like lighting along z axis, and stop when meeting the surface. This idea is similar to flood fill but is much more efficient. And it's worthy noting, after this algorithm, there are some *holes*. But these holes are only a few, so we can use flood fill again on them now.
+- Random permutate the triangles' order to get better parallel performance.
 - [TODO] gpu
 - [TODO] try to fill the inside voxels, such that the time complexity is proportional to size of the result voxels.
 

@@ -15,6 +15,7 @@
 #include <assimp/postprocess.h>     // Post processing flags
 #include "Commons.h"
 #include "ThreadPool.h"
+#include "Timer.h"
 #include <queue>
 #include <fstream>
 
@@ -32,14 +33,14 @@ template<typename T>
 struct ArrayDeleter {
 	void operator ()(T const * p) {
 		delete[] p;
-//		std::cout << "Array is deleted" << std::endl;
 	}
 };
 
 class Voxelizer {
 
-	v3_p _meshLb, _meshUb;
-	v3_p _meshVoxLB, _meshVoxUB;
+	bool _isInit;
+	v3_p _meshLb, _meshUb; // location
+	v3_p _meshVoxLB, _meshVoxUB; // voxels of location
 
 	float _minLb, _maxUb;
 	v3_p _lb, _ub, _bound;
@@ -53,11 +54,13 @@ class Voxelizer {
 
 	auint_p _voxelsBuffer;
 	auint_p _voxels;
-	unsigned int _size, _totalSize, _size2;
+
+	unsigned int _size, _totalSize, _size2; // size_2 = size*size
 
 	inline void loadFromMesh(const aiMesh* mesh);
-	inline void prepareBoundareis(size_t numThread=1);
-	inline void prepareBoundareis2(size_t numThread=1);
+	inline void runSolidTask(size_t numThread=1);
+	inline void runSolidTask2(size_t numThread=1);
+	void runSurfaceTask(const int triId);
 	inline void fillYZ(const int x);
 	inline void fillXZ(const int y);
 	inline void fillXY(const int z);
@@ -79,7 +82,6 @@ public:
 	inline int bfsSurface(const tri_p& tri, const v3_p& lb, const v3_p& ub);
 	void randomPermutation(const v3_p& data, int num);
 	void voxelizeSurface(int numThread=1);
-	void runSurfaceTask(const int triId);
 	void voxelizeSolid(int numThread=1);
 	void bfsSolid(const unsigned int voxelId);
 	void collectResult();
@@ -88,8 +90,5 @@ public:
 	Voxelizer(int size, const string& pFile);
 	virtual ~Voxelizer();
 };
-
-
-
 
 #endif /* VOXELIZER_H_ */

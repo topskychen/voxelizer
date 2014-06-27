@@ -12,6 +12,7 @@
 
 Voxelizer::Voxelizer(int size, const string& pFile): _size(size) {
 	cout << "voxelizer init... " << endl;
+	_isInit = false;
 	const aiScene* scene;
 	try {
 		/*
@@ -42,11 +43,9 @@ Voxelizer::Voxelizer(int size, const string& pFile): _size(size) {
 		std::cout << "faces : " << _numFaces << std::endl;
 		std::cout << "vertices : " << _numVertices << std::endl;
 		loadFromMesh(mesh);
-//		prepareBoundareis();
 
-
-//		_identity.setIdentity();
 		if (!scene) delete scene;
+		_isInit = true;
 	} catch (std::exception& e) {
 		std::cout << e.what() << std::endl;
 		if (!scene) delete scene;
@@ -137,13 +136,13 @@ inline void Voxelizer::loadFromMesh(const aiMesh* mesh) {
 	_ub.reset(new Vec3f(_maxUb, _maxUb, _maxUb));
 	_bound.reset(new Vec3f((*_ub - *_lb)));
 
-
 	_faces.reset(new Vec3f[_numFaces], ArrayDeleter<Vec3f>());
 	for (size_t i = 0; i < _numFaces; ++i) {
 		_faces.get()[i] = Vec3f(mesh->mFaces[i].mIndices[0],
 				mesh->mFaces[i].mIndices[1], mesh->mFaces[i].mIndices[2]);
 	}
 	randomPermutation(_faces, _numFaces);
+
 	Vec3f halfUnit = (*_bound) / ((float) _size*2);
 	_halfUnit.reset(new Vec3f(halfUnit));
 	_meshVoxLB = getVoxel(_meshLb);
@@ -158,13 +157,16 @@ inline void Voxelizer::loadFromMesh(const aiMesh* mesh) {
  * voxelize the surface.
  */
 void Voxelizer::voxelizeSurface(const int numThread) {
-	 cout << "surface voxelizing... " << endl;
-	 ThreadPool tp(numThread);
-	 for (int i = 0; i < _numFaces; ++i) {
-		 tp.run(boost::bind(&Voxelizer::runSurfaceTask, this, i));
-	 }
-	 tp.stop();
-	 cout << "done." << endl;
+	if (!_isInit) {
+		return;
+	}
+	cout << "surface voxelizing... " << endl;
+	ThreadPool tp(numThread);
+	for (int i = 0; i < _numFaces; ++i) {
+	 tp.run(boost::bind(&Voxelizer::runSurfaceTask, this, i));
+	}
+	tp.stop();
+	cout << "done." << endl;
 }
 
 /**
@@ -241,11 +243,14 @@ inline int Voxelizer::bfsSurface(const tri_p& tri, const v3_p& lb, const v3_p& u
 }
 
 void Voxelizer::voxelizeSolid(int numThread) {
+	if (!_isInit) {
+		return;
+	}
 	cout << "solid voxelizing... " << endl;
 	cout << "round 1..." << endl;
-	prepareBoundareis(numThread);
+	runSolidTask(numThread);
 	cout << "round 2..." << endl;
-	prepareBoundareis2(numThread);
+	runSolidTask2(numThread);
 	for (int i = 0; i < _totalSize; ++i) _voxels.get()[i] = _voxelsBuffer.get()[i]^(~0);
 	cout << "done." << endl;
 }
@@ -492,7 +497,7 @@ inline void Voxelizer::fillXY2(const int z) {
 	}
 }
 
-inline void Voxelizer::prepareBoundareis(size_t numThread) {
+inline void Voxelizer::runSolidTask(size_t numThread) {
 	ThreadPool tp(numThread);
 	int lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0], ly = (*_meshVoxLB)[1], uy = (*_meshVoxUB)[1], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2];
 	for (int x = lx; x <= ux; ++x) {
@@ -508,7 +513,7 @@ inline void Voxelizer::prepareBoundareis(size_t numThread) {
 }
 
 
-inline void Voxelizer::prepareBoundareis2(size_t numThread) {
+inline void Voxelizer::runSolidTask2(size_t numThread) {
 	ThreadPool tp(numThread);
 	int lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0], ly = (*_meshVoxLB)[1], uy = (*_meshVoxUB)[1], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2];
 	for (int x = lx; x <= ux; ++x) {
@@ -536,9 +541,6 @@ void Voxelizer::write(const string& pFile) {
 	int bx = ux-lx+1, by = uy-ly+1, bz = uz-lz+1;
 
 	ofstream* output = new ofstream(pFile.c_str(), ios::out | ios::binary);
-
-//	  Vector norm_translate = voxels.get_norm_translate();
-//	  Float norm_scale = voxels.get_norm_scale();
 
 	Vec3f& norm_translate = (*_meshLb);
 	float norm_scale = ((*_meshUb-*_meshLb).norm());
@@ -607,9 +609,6 @@ void Voxelizer::writeForView(const string& pFile) {
 
 	ofstream* output = new ofstream(pFile.c_str(), ios::out | ios::binary);
 
-//	  Vector norm_translate = voxels.get_norm_translate();
-//	  Float norm_scale = voxels.get_norm_scale();
-
 	Vec3f& norm_translate = (*_lb);
 	float norm_scale = (*_bound).norm();
 
@@ -669,4 +668,33 @@ Voxelizer::~Voxelizer() {
 
 inline const auint_p& Voxelizer::getVoxels() const {
 	return _voxels;
+}
+
+
+
+int main(int args, char* argv[]) {
+	Timer timer;
+//	string fileName = "/Users/chenqian/workspace/mujin/data/kawada-hironx.stl";
+//	string fileName2 = "/Users/chenqian/workspace/mujin/data/test.binvox";
+	if (args == 5) {
+		int gridSize = atoi(argv[1]);
+		int numThread = atoi(argv[2]);
+		string inputFile = argv[3];
+		string outputFile = argv[4];
+		timer.restart();
+		Voxelizer voxelizer(gridSize, inputFile);
+		voxelizer.voxelizeSurface(numThread);
+		timer.stop();
+		cout << "surface voxelization "; timer.printTimeInS();
+		timer.restart();
+		voxelizer.voxelizeSolid(numThread);
+		timer.stop();
+		cout << "solid voxelization "; timer.printTimeInS();
+		timer.restart();
+		voxelizer.writeForView(outputFile);
+		timer.stop();
+		cout << "writing file "; timer.printTimeInS();
+	} else {
+		cout << "grid_size num_threads STL_file output_file" << endl;
+	}
 }

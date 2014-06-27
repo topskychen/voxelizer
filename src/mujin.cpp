@@ -23,31 +23,3 @@ typedef boost::shared_ptr<aiScene> scene_p;
 typedef boost::shared_ptr<aiMesh> mesh_p;
 
 
-
-int main(int args, char* argv[]) {
-	Timer timer;
-//	string fileName = "/Users/chenqian/workspace/mujin/data/kawada-hironx.stl";
-//	string fileName2 = "/Users/chenqian/workspace/mujin/data/test.binvox";
-	if (args == 5) {
-		int gridSize = atoi(argv[1]);
-		int numThread = atoi(argv[2]);
-		string inputFile = argv[3];
-		string outputFile = argv[4];
-		timer.restart();
-		Voxelizer voxelizer(gridSize, inputFile);
-		voxelizer.voxelizeSurface(numThread);
-		timer.stop();
-		cout << "surface voxelization "; timer.printTimeInS();
-		timer.restart();
-		voxelizer.voxelizeSolid(numThread);
-		timer.stop();
-		cout << "solid voxelization "; timer.printTimeInS();
-		timer.restart();
-		voxelizer.writeForView(outputFile);
-		// voxelizer.write(outputFile);
-		timer.stop();
-		cout << "writing file "; timer.printTimeInS();
-	} else {
-		cout << "grid_size num_threads STL_file output_file" << endl;
-	}
-}

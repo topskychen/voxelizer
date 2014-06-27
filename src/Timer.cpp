@@ -8,8 +8,6 @@
 #include "Timer.h"
 
 Timer::Timer() {
-	// TODO Auto-generated constructor stub
-
 }
 
 
@@ -30,7 +28,6 @@ double Timer::timeInS() {
 
 
 Timer::~Timer() {
-	// TODO Auto-generated destructor stub
 }
 
 void Timer::printTimeInS() {

@@ -18,7 +18,6 @@ inline void fill(const Vec3f& vc, float ft[3]) {
 }
 
 bool collide(const v3_p& halfUnit, const v3_p& boxAA, const tri_p& tri) {
-//	int triBoxOverlap(float boxcenter[3],float boxhalfsize[3],float triverts[3][3])
 	Vec3f vBoxCenter = (*boxAA)+*halfUnit;
 	float halfSize[3];
 	fill(*halfUnit, halfSize);

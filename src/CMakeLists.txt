@@ -17,8 +17,8 @@ target_link_libraries(STLImportTest
     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
 )
 
-add_executable(mujin mujin.cpp Timer.cpp Timer.h Voxelizer.cpp Voxelizer.h ThreadPool.cpp ThreadPool.h Commons.cpp Commons.h TriBox.cpp TriBox.h)
-target_link_libraries(mujin
+add_executable(Voxelizer Timer.cpp Timer.h Voxelizer.cpp Voxelizer.h ThreadPool.cpp ThreadPool.h Commons.cpp Commons.h TriBox.cpp TriBox.h)
+target_link_libraries(Voxelizer
     ${ASSIMP_LIBRARIES}
     ${FCL_LIBRARIES}
     ${Boost_ATOMIC_LIBRARY}
