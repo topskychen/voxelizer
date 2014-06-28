@@ -5,7 +5,7 @@
 ----------
 
 
-This project voxelizes the meshes in STL file ***without*** the condition of *watertight*. ***It supports \*.stl files only now.*** Basically, the project can be summarized into two steps:
+This project voxelizes the meshes in STL file ***without*** the condition of *watertight*. ***It supports stl files only now.*** Basically, the project can be summarized into two steps:
 
 - Surface voxelization  
     For each piece of mesh (triangle) , we check the collided voxels in either way: 
@@ -76,7 +76,7 @@ Next, in linux, use `make` in 'build' directory to compile the code.
 	e.g., kawada-hironx.stl
 	- output_file  
 	e.g., kawada-hironx.vox
-- Output (voxel file format, it is wrote in ***bianry*** mode, the 'TestVox.cpp' in src provides a sample code to load the .vox file.)
+- Output (voxel file format, it is wrote in ***bianry*** mode, the 'TestVox.cpp' in test folder provides a sample code to load the .vox file.)
 	- header
 		- grid_size   
 		one integer denotes the size of grid system, e.g., 256
@@ -89,6 +89,12 @@ Next, in linux, use `make` in 'build' directory to compile the code.
 		three integers denote the voxel coordinate in grid system, e.g, 30 66 194
         - ...   
 When we have the voxel (x,y,z), we can get the box in original space as follows: (lowerbound_x + x\*voxel_size, lowerbound_y + y\*voxel_size, lowerbound_z + z\*voxel_size), (lowerbound_x + (x+1)\*voxel_size, lowerbound_y + (y+1)\*voxel_size, lowerbound_z + (z+1)\*voxel_size).
+
+When you are in 'build' directory, a running example is: 
+
+```./bin/Voxelizer 256 4 ../data/kawada-hironx.stl ../data/kawada-hironx.vox```
+
+
 
 For your reference, the pseudo output code for output is:
 
@@ -120,8 +126,6 @@ for (x,y,z) in voxels:
 -->
 
 
-When you are in 'build' directory, a running example is: 
-`./bin/Voxelizer 256 4 ../data/kawada-hironx.stl ../data/kawada-hironx.vox`.
 
 ## Directories
 
