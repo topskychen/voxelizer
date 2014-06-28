@@ -135,11 +135,13 @@ for (x,y,z) in voxels:
 
 This project has folders and files as follows:
 
- - *src*
+ - *src*    
     the source files
- - *data* 
+ - *test*    
+    the test files
+ - *data*    
     testing data (.stl files)
- - *CMakeLists.txt* 
+ - *CMakeLists.txt*    
     for cmake
     
 ## Testing Platform
@@ -148,5 +150,5 @@ This project has folders and files as follows:
 ----------
 
 
-MacOS 10.9.3
+MacOS 10.9.3    
 ubuntu 14.04
