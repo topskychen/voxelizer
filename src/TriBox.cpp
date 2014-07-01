@@ -5,7 +5,7 @@
  *      Author: chenqian
  */
 
-#include "TriBox.h"
+#include "triBox.h"
 
 
 
@@ -188,7 +188,7 @@ int planeBoxOverlap(float normal[3], float vert[3], float maxbox[3])	// -NJMP-
 
 
 
-int triBoxOverlap(float boxcenter[3],float boxhalfsize[3],float triverts[3][3])
+int TriBoxOverlap(float boxcenter[3],float boxhalfsize[3],float triverts[3][3])
 
 {
 

@@ -5,13 +5,13 @@
  *      Author: chenqian
  */
 
-#include "ThreadPool.h"
+#include "threadPool.h"
 
 ThreadPool::ThreadPool(size_t nThreads) {
-	restart(nThreads);
+	Restart(nThreads);
 }
 
-void ThreadPool::stop(bool wait) {
+void ThreadPool::Stop(bool wait) {
 	if (wait) {
 	  _work.reset(); // if not delete this, io_service::run will never exit
 	  _threadPool.join_all();
@@ -23,7 +23,7 @@ void ThreadPool::stop(bool wait) {
 	}
 }
 
-void ThreadPool::restart(size_t nThreads) {
+void ThreadPool::Restart(size_t nThreads) {
 	_work.reset(new boost::asio::io_service::work(_service));
 		for (std::size_t i = 0; i < nThreads; ++i)
 			_threadPool.create_thread(boost::bind(&boost::asio::io_service::run, &_service));

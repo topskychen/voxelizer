@@ -19,11 +19,11 @@ class ThreadPool {
 	boost::thread_group _threadPool;
 
 public:
-	void stop(bool wait=true);
+	void Stop(bool wait=true);
 	ThreadPool(size_t nThreads = 1);
-	void restart(size_t nThreads = 1);
+	void Restart(size_t nThreads = 1);
 	template<typename T>
-	void run(T func) {
+	void Run(T func) {
 		_service.post(func);
 	}
 	virtual ~ThreadPool();

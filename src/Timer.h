@@ -13,16 +13,16 @@
 
 class Timer {
 
-	struct timeval time;
-	double start, end;
+	struct timeval _time;
+	double _start, _end;
 
 public:
 	Timer();
 	virtual ~Timer();
-	void restart();
-	void stop();
-	double timeInS();
-	void printTimeInS();
+	void Restart();
+	void Stop();
+	double TimeInS();
+	void PrintTimeInS();
 };
 
 #endif /* TIMER_H_ */

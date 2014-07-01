@@ -59,3 +59,7 @@ if( ASSIMP_FOUND )
 endif()
 
 add_subdirectory(src bin)
+
+
+enable_testing()
+add_subdirectory(test)
