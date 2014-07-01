@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(mujin CXX)
+project(voxelizer CXX)
 
 find_package(PkgConfig) # pkg_check_modules
 
@@ -8,7 +8,7 @@ find_package(Boost COMPONENTS atomic thread date_time filesystem system unit_tes
 if(Boost_FOUND)
 	include_directories(${Boost_INCLUDE_DIR})
 else()
-	message(FATAL_ERROR "Boost is required by Mujin")
+	message(FATAL_ERROR "Boost is required by Voxelizer")
 endif()
 
 if(PKG_CONFIG_FOUND)
@@ -29,7 +29,7 @@ if(NOT FCL_FOUND)
     if(FCL_INCLUDE_DIRS AND FCL_LIBRARY_DIRS)
         set(FCL_LIBRARIES ${CMAKE_SHARED_LIBRARY_PREFIX}fcl${CMAKE_SHARED_LIBRARY_SUFFIX})
     else()
-        message(FATAL_ERROR "Libfcl is required by Mujin")
+        message(FATAL_ERROR "Libfcl is required by Voxelizer")
     endif()
 endif()
 include_directories(${FCL_INCLUDE_DIRS})
@@ -51,7 +51,7 @@ if( ASSIMP_FOUND )
       #set(ASSIMP_LIBRARIES ${CMAKE_SHARED_LIBRARY_PREFIX}assimp${CMAKE_SHARED_LIBRARY_SUFFIX})
       message(STATUS "Assimp library : " ${ASSIMP_LIBRARIES}) 
   else()
-      message(FATAL_ERROR "Libassimp is required by Mujin")
+      message(FATAL_ERROR "Libassimp is required by Voxelizer")
   endif()
   if( ${ASSIMP_VERSION} STRGREATER "2.0.0" )
     set(IS_ASSIMP3 1)

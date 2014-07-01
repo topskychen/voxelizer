@@ -8,8 +8,8 @@
 
 int main(int args, char* argv[]) {
 	Timer timer;
-//	string fileName = "/Users/chenqian/workspace/mujin/data/kawada-hironx.stl";
-//	string fileName2 = "/Users/chenqian/workspace/mujin/data/test.binvox";
+//	string fileName = "../data/kawada-hironx.stl";
+//	string fileName2 = "../data/test.binvox";
 	if (args == 5) {
 		int gridSize = atoi(argv[1]);
 		int numThread = atoi(argv[2]);

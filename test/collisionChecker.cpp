@@ -183,7 +183,6 @@ int main(int argc, char* argv[]) {
 	string inputFile[] = {"../data/kawada-hironx.stl", "../data/racecar.stl", "../data/bike.stl"};
 	double ratios[] = {0.005, 0.01, 0.02, 0.04, 0.08};
 	int testCases = 1000;
-	// string inputFile = "/Users/chenqian/workspace/mujin/data/racecar.stl";
 	for (int i = 0; i < 3; ++i) {
 		cout << "==================================" << endl;
 		cout << "Intput file : " << inputFile[i] << endl;
