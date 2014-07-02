@@ -63,7 +63,7 @@ co_p CollisionChecker::_GenRandomCO(double ratio) {
 inline bool CollisionChecker::TestVoxel(const co_p& cubeCO) {
 	const v3_p lb = _voxelizer->GetVoxel(cubeCO->getAABB().min_);
 	const v3_p ub = _voxelizer->GetVoxel(cubeCO->getAABB().max_);
-	int lx = (int)(*lb)[0], ux = (int)(*ub)[0], ly = (int)(*lb)[1], uy = (int)(*ub)[1], lz = (int)(*lb)[2], uz = (int)(*ub)[2];
+	int lx = max(0, (int)(*lb)[0]), ux = min(_size-1, (int)(*ub)[0]), ly = max(0, (int)(*lb)[1]), uy = min(_size-1, (int)(*ub)[1]), lz = max(0, (int)(*lb)[2]), uz = min(_size-1, (int)(*ub)[2]);
 	unsigned int voxelInt, tmp;
 	v3_p vxlBox(new Vec3f(0, 0, 0));
 //	cout << "e" << endl;
@@ -182,16 +182,20 @@ CollisionChecker::~CollisionChecker() {
 int main(int argc, char* argv[]) {
 	string inputFile[] = {"../data/kawada-hironx.stl", "../data/racecar.stl", "../data/bike.stl"};
 	double ratios[] = {0.005, 0.01, 0.02, 0.04, 0.08};
+	int gridSize[] = {128, 256};
 	int testCases = 1000;
 	for (int i = 0; i < 3; ++i) {
-		cout << "==================================" << endl;
-		cout << "Intput file : " << inputFile[i] << endl;
-		cout << "Grid size : " << 256 << endl;
-		cout << "==================================" << endl;
-		CollisionChecker checker(256, 4, inputFile[i]);
-		for (int j = 0; j < 5; ++j) {
-			checker.Test(testCases, ratios[j]);		
-		}	
+		for (int k = 0; k < 2; ++k) {
+			cout << "==================================" << endl;
+			cout << "Intput file : " << inputFile[i] << endl;
+			cout << "Grid size : " << gridSize[k] << endl;
+			cout << "==================================" << endl;
+			CollisionChecker checker(gridSize[k], 4, inputFile[i]);
+			for (int j = 0; j < 5; ++j) {
+				checker.Test(testCases, ratios[j]);		
+			}	
+		}
+			
 	}
 }
 
