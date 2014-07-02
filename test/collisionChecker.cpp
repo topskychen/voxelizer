@@ -182,10 +182,10 @@ CollisionChecker::~CollisionChecker() {
 int main(int argc, char* argv[]) {
 	string inputFile[] = {"../data/kawada-hironx.stl", "../data/racecar.stl", "../data/bike.stl"};
 	double ratios[] = {0.005, 0.01, 0.02, 0.04, 0.08};
-	int gridSize[] = {128, 256};
+	int gridSize[] = {128, 256, 512};
 	int testCases = 1000;
-	for (int i = 0; i < 3; ++i) {
-		for (int k = 0; k < 2; ++k) {
+	for (int k = 0; k < 3; ++k) {
+		for (int i = 0; i < 3; ++i) {
 			cout << "==================================" << endl;
 			cout << "Intput file : " << inputFile[i] << endl;
 			cout << "Grid size : " << gridSize[k] << endl;
