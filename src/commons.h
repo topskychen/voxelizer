@@ -18,7 +18,7 @@
 #include <fcl/shape/geometric_shapes.h>
 #include <fcl/shape/geometric_shapes_utility.h>
 #include <fcl/narrowphase/narrowphase.h>
-#include "TriBox.h"
+#include "triBox.h"
 
 #include <boost/unordered_set.hpp>
 #include <ctime>
