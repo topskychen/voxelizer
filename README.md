@@ -92,7 +92,7 @@ When we have the voxel (x,y,z), we can get the box in original space as follows:
 
 When you are in 'build' directory, a running example is: 
 
-```./bin/Voxelizer 256 4 ../data/kawada-hironx.stl ../data/kawada-hironx.vox```
+```./bin/voxelizer 256 4 ../data/kawada-hironx.stl ../data/kawada-hironx.vox```
 
 
 
