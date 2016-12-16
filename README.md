@@ -43,9 +43,9 @@ This project voxelizes the meshes in STL file ***without*** the condition of *wa
 
 This project requires libraries (dependencies) as follows:
 
-- *boost* 
+- *boost*
 - *libfcl* 		
-	for collision checking (https://github.com/flexible-collision-library/fcl), ***libccd*** is required
+	for collision checking (https://github.com/flexible-collision-library/fcl, version: tags/0.3.3), ***libccd*** is required
 - *assimp*  
     for loading STL file (https://github.com/assimp/assimp)
 - *cmake & make*
