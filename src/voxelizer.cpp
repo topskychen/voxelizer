@@ -651,7 +651,9 @@ void Voxelizer::WriteForView(const string& pFile) {
 
 void Voxelizer::WriteSimple(const string& pFile) {
 	if (_verbose) cout << "writing voxels to file..." << endl;
-	int lx = (*_meshVoxLB)[0], ux = (*_meshVoxUB)[0], ly = (*_meshVoxLB)[1], uy = (*_meshVoxUB)[1], lz = (*_meshVoxLB)[2], uz = (*_meshVoxUB)[2];
+	int lx = 0, ux = _size-1, ly = 0, uy = _size-1, lz = 0, uz = _size-1;
+	int meshLx = (*_meshVoxLB)[0], meshLy = (*_meshVoxLB)[1], meshLz = (*_meshVoxLB)[2];
+	int meshUx = (*_meshVoxUB)[0], meshUy = (*_meshVoxUB)[1], meshUz = (*_meshVoxUB)[2];
 	ofstream* output = new ofstream(pFile.c_str(), ios::out | ios::binary);
 
 	//
@@ -672,6 +674,7 @@ void Voxelizer::WriteSimple(const string& pFile) {
 	for (int x = lx; x <= ux; ++x) {
 		for (int y = ly; y <= uy; ++y) {
 			for (int z = lz; z <= uz; ++z) {
+				if (!_InRange(x, y, z, meshLx, meshLy, meshLz, meshUx, meshUy, meshUz)) continue;
 				voxelInt = x*_size2 + y*_size + z;
 				tmp = (_voxels.get())[voxelInt/BATCH_SIZE].load();
 				if (GETBIT(tmp, voxelInt)) {
