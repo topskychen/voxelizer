@@ -5,7 +5,7 @@
  *      Author: chenqian
  */
 
-#include "collisionChecker.h"
+#include "collision_checker.h"
 using namespace std;
 
 using voxelizer::ArrayDeleter;

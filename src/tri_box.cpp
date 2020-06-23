@@ -5,7 +5,7 @@
  *      Author: chenqian
  */
 
-#include "triBox.h"
+#include "tri_box.h"
 
 /********************************************************/
 

@@ -152,7 +152,7 @@ This project has folders and files as follows:
 
 ----------
 
-For simple testing, in `build` directory, run  ```./test/collisionChecker```.
+For simple testing, in `build` directory, run  ```./test/collision_checker```.
 It is a benchmark of voxel collision checking and mesh collision checking (using the libfcl), with three testing files (kawada-hironx.stl, racecar.stl, and bike.stl). The grid size varies from 128 to 512, and the random cube (with random translate and random rotation) has size of 0.005^3 to 0.08^3 of the total scene size. The accuracy is defined based on the ground truth of mesh collision checking. As you can see, when the grid size becomes larger, the accuracy will increase. The collision checking performance is not specially optimized yet.
 
 #### Testing Plaform

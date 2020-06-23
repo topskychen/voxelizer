@@ -5,7 +5,7 @@
  *      Author: chenqian
  */
 
-#include "threadPool.h"
+#include "thread_pool.h"
 
 namespace voxelizer {
 

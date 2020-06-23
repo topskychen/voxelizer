@@ -22,7 +22,7 @@
 #include <cstdlib>
 #include <ctime>
 
-#include "triBox.h"
+#include "tri_box.h"
 using namespace fcl;
 
 namespace voxelizer {
