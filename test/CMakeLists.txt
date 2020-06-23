@@ -17,4 +17,5 @@ include_directories ("${PROJECT_SOURCE_DIR}/src/")
 file(GLOB_RECURSE voxelizer_SRC ${PROJECT_SOURCE_DIR}/src/timer.cpp ${PROJECT_SOURCE_DIR}/src/timer.h ${PROJECT_SOURCE_DIR}/src/voxelizer.cpp ${PROJECT_SOURCE_DIR}/src/voxelizer.h ${PROJECT_SOURCE_DIR}/src/threadPool.cpp ${PROJECT_SOURCE_DIR}/src/threadPool.h ${PROJECT_SOURCE_DIR}/src/commons.cpp ../src/commons.h ${PROJECT_SOURCE_DIR}/src/triBox.cpp ${PROJECT_SOURCE_DIR}/src/triBox.h)
 
 add_check_test(collisionChecker collisionChecker.cpp collisionChecker.h ${voxelizer_SRC})
+add_check_test(read_rawvox read_rawvox.cpp ${voxelizer_SRC})
 

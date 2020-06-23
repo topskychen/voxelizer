@@ -79,7 +79,7 @@ Next, in linux, use `make` in 'build' directory to compile the code.
 	e.g., kawada-hironx.stl
 	- output_file  
 	e.g., kawada-hironx.vox
-- Output (voxel file format, it is wrote in ***bianry*** mode, the 'TestVox.cpp' in test folder provides a sample code to load the .vox file.)
+- Output (voxel file format, it is wrote in `binvox`, `rawvox` and `cmpvox` mode, the 'TestVox.cpp' in test folder provides a sample code to load the .rawvox file.)
 	- header
 		- grid_size   
 		one integer denotes the size of grid system, e.g., 256

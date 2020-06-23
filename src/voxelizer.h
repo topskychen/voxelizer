@@ -92,9 +92,10 @@ class Voxelizer {
   V3SP GetFaces();
   void VoxelizeSurface(int num_thread = 1);
   void VoxelizeSolid(int num_thread = 1);
-  void Write(const string& p_file);
-  void WriteSimple(const string& p_file);
-  void WriteForView(const string& p_file);
+  void Write(const string& p_file, const string& format);
+  void WriteBinvox(const string& p_file);
+  void WriteRawvox(const string& p_file);
+  void WriteCmpvox(const string& p_file);
   Voxelizer(int size, const string& p_file, bool verbose);
   virtual ~Voxelizer();
 };

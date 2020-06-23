@@ -577,9 +577,24 @@ inline void Voxelizer::RunSolidTask2(size_t num_thread) {
 }
 
 /**
- * Write to file, with simple compression
+ * Write to file with a output format
  */
-void Voxelizer::Write(const string& p_file) {
+void Voxelizer::Write(const string& p_file, const string& format) {
+  if (format == "binvox") {
+    WriteBinvox(p_file);
+  } else if (format == "rawvox") {
+    WriteRawvox(p_file);
+  } else if (format == "cmpvox") {
+    WriteCmpvox(p_file);
+  } else {
+    cout << "no such format: " << format << endl;
+  }
+}
+
+/**
+* Write to file with compression.
+*/
+void Voxelizer::WriteCmpvox(const string& p_file) {
   if (verbose_) cout << "writing voxels to file..." << endl;
   int lx = (*mesh_vox_lb_)[0], ux = (*mesh_vox_ub_)[0], ly = (*mesh_vox_lb_)[1],
       uy = (*mesh_vox_ub_)[1], lz = (*mesh_vox_lb_)[2], uz = (*mesh_vox_ub_)[2];
@@ -638,9 +653,9 @@ void Voxelizer::Write(const string& p_file) {
 }
 
 /**
- * Write to file, with simple compression
+ * Write to file, with binvox format, check https://www.patrickmin.com/viewvox/
  */
-void Voxelizer::WriteForView(const string& p_file) {
+void Voxelizer::WriteBinvox(const string& p_file) {
   if (verbose_) cout << "writing voxels to file..." << endl;
 
   V3SP vxlBox(new Vec3f(0, 0, 0));
@@ -712,7 +727,10 @@ void Voxelizer::WriteForView(const string& p_file) {
          << ", in " << bytes_written << " bytes" << endl;
 }
 
-void Voxelizer::WriteSimple(const string& p_file) {
+/**
+ * Write to file with raw format.
+ */
+void Voxelizer::WriteRawvox(const string& p_file) {
   if (verbose_) cout << "writing voxels to file..." << endl;
   int lx = 0, ux = size_ - 1, ly = 0, uy = size_ - 1, lz = 0, uz = size_ - 1;
   int mesh_lx = (*mesh_vox_lb_)[0], mesh_ly = (*mesh_vox_lb_)[1],

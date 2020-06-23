@@ -27,6 +27,7 @@ target_link_libraries(voxelizer
     ${Boost_THREAD_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
 )
 #add_library(${PROJECT_NAME} STATIC ${voxelizer_SRC})
 

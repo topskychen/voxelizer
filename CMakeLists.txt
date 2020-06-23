@@ -3,7 +3,7 @@ project(voxelizer CXX)
 
 find_package(PkgConfig) # pkg_check_modules
 
-find_package(Boost COMPONENTS atomic thread date_time filesystem system unit_test_framework REQUIRED)
+find_package(Boost COMPONENTS atomic thread date_time filesystem system unit_test_framework program_options REQUIRED)
 
 if(Boost_FOUND)
 	include_directories(${Boost_INCLUDE_DIR})
