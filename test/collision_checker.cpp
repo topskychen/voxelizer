@@ -36,11 +36,12 @@ void CollisionChecker::EulerToMatrix(FCL_REAL a, FCL_REAL b, FCL_REAL c,
              c3 * s1 * s2 + c1 * s3, c2 * c3);
 }
 
-CollisionChecker::CollisionChecker(int size, int num_thread,
-                                   const string& p_file) {
-  cout << "collision checker init..." << endl;
-  voxelizer_.reset(new Voxelizer(size, p_file, false));
-  voxelizer_->VoxelizeSurface(num_thread);
+bool CollisionChecker::Init() {
+	cout << "collision checker init..." << endl;
+
+	if (!voxelizer_->Init()) return false;
+
+  voxelizer_->VoxelizeSurface(num_thread_);
   // voxelizer_->VoxelizeSolid(num_thread);
   //	V3SP lb = voxelizer_->GetLowerBound();
   //	V3SP ub = voxelizer_->GetUpperBound();
@@ -52,7 +53,6 @@ CollisionChecker::CollisionChecker(int size, int num_thread,
   extents_[3] = (*ub)[0];
   extents_[4] = (*ub)[1];
   extents_[5] = (*ub)[2];
-  size_ = size;
   size2_ = size_ * size_;
   voxels_.reset(new unsigned int[voxelizer_->GetTotalSize()],
                 ArrayDeleter<unsigned int>());
@@ -62,26 +62,28 @@ CollisionChecker::CollisionChecker(int size, int num_thread,
   PreMeshCO();
 
   cout << "done." << endl;
+
+  return true;
 }
 
-co_p CollisionChecker::GenRandomCO(double ratio) {
+COSP CollisionChecker::GenRandomCO(double ratio) {
   BoxSP box(new Box((*(voxelizer_->GetMeshUpperBound()) -
                      *(voxelizer_->GetMeshLowerBound())) *
                     ratio));
   Transform3f tf;
   GenRandomTransform(extents_, tf);
-  co_p boxCO(new CollisionObject(box, tf));
+  COSP boxCO(new CollisionObject(box, tf));
   return boxCO;
 }
 
-inline bool CollisionChecker::TestVoxel(const co_p& cube_co) {
+inline bool CollisionChecker::TestVoxel(const COSP& cube_co) {
   const V3SP lb = voxelizer_->GetVoxel(cube_co->getAABB().min_);
   const V3SP ub = voxelizer_->GetVoxel(cube_co->getAABB().max_);
   int lx = max(0, (int)(*lb)[0]), ux = min(size_ - 1, (int)(*ub)[0]),
       ly = max(0, (int)(*lb)[1]), uy = min(size_ - 1, (int)(*ub)[1]),
       lz = max(0, (int)(*lb)[2]), uz = min(size_ - 1, (int)(*ub)[2]);
   unsigned int voxelInt, tmp;
-  V3SP vxlBox(new Vec3f(0, 0, 0));
+  V3SP vxl_box(new Vec3f(0, 0, 0));
   //	cout << "e" << endl;
   // cout << *lb << ", " << *ub << endl;
   for (int x = lx, y, z; x <= ux; ++x) {
@@ -90,15 +92,15 @@ inline bool CollisionChecker::TestVoxel(const co_p& cube_co) {
         voxelInt = x * size2_ + y * size_ + z;
         tmp = (voxels_.get())[voxelInt / kBatchSize];
         if (!GETBIT(tmp, voxelInt)) continue;
-        vxlBox->setValue(x, y, z);
-        // Transform3f tf(*voxelizer_->GetLoc(vxlBox));
-        Transform3f tf(*voxelizer_->GetLoc(vxlBox) +
+        vxl_box->setValue(x, y, z);
+        // Transform3f tf(*voxelizer_->GetLoc(vxl_box));
+        Transform3f tf(*voxelizer_->GetLoc(vxl_box) +
                        *voxelizer_->GetHalfUnit());
-        // cout << *voxelizer_->GetLoc(vxlBox) << endl;
+        // cout << *voxelizer_->GetLoc(vxl_box) << endl;
         CollisionRequest request;
         CollisionResult result;
-        co_p boxCO(new CollisionObject(unit_, tf));
-        if (fcl::collide(boxCO.get(), cube_co.get(), request, result)) {
+        COUP box_co(new CollisionObject(unit_, tf));
+        if (fcl::collide(box_co.get(), cube_co.get(), request, result)) {
           return true;
         }
       }
@@ -107,7 +109,7 @@ inline bool CollisionChecker::TestVoxel(const co_p& cube_co) {
   return false;
 }
 
-inline bool CollisionChecker::TestMesh(const co_p& cube_co) {
+inline bool CollisionChecker::TestMesh(const COSP& cube_co) {
   CollisionRequest request;
   CollisionResult result;
   if (fcl::collide(mesh_co_.get(), cube_co.get(), request, result)) {
@@ -121,7 +123,7 @@ void CollisionChecker::Test(int num_cases, double ratio) {
   double t1 = 0, t2 = 0;
   int tp = 0, fp = 0, fn = 0, tn = 0;
   for (int i = 0; i < num_cases; ++i) {
-    co_p cube_co = GenRandomCO(ratio);
+    COSP cube_co = GenRandomCO(ratio);
     cube_co->computeAABB();
     //		cout << cube_co->getAABB().min_ << endl;
     timer.Restart();
@@ -164,7 +166,7 @@ void CollisionChecker::PreMeshCO() {
     Vec3f& tmp = (tmpFaces.get())[i];
     triangles_.push_back(Triangle(tmp[0], tmp[1], tmp[2]));
   }
-  model_p model(new Model());
+  ModelSP model(new Model());
   model->beginModel(triangles_.size(), vertices_.size());
   model->addSubModel(vertices_, triangles_);
   model->endModel();
@@ -208,6 +210,10 @@ int main(int argc, char* argv[]) {
       cout << "Grid size : " << gridSize[k] << endl;
       cout << "==================================" << endl;
       collision_checker::CollisionChecker checker(gridSize[k], 4, inputFile[i]);
+      if (!checker.Init()) {
+      	cout << "Checker init error." << endl;
+      	return 1;
+      }
       for (int j = 0; j < 5; ++j) {
         checker.Test(testCases, ratios[j]);
       }

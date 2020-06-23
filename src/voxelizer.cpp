@@ -11,8 +11,7 @@
 
 namespace voxelizer {
 
-Voxelizer::Voxelizer(int size, const string& p_file, bool verbose)
-    : size_(size), verbose_(verbose) {
+bool Voxelizer::Init() {
   if (verbose_) cout << "voxelizer init... " << endl;
   is_init_ = false;
   const aiScene* scene;
@@ -21,13 +20,14 @@ Voxelizer::Voxelizer(int size, const string& p_file, bool verbose)
      * Load scene
      * */
     Assimp::Importer importer;
-    scene = importer.ReadFile(p_file, aiProcessPreset_TargetRealtime_Fast);
+    scene = importer.ReadFile(p_file_, aiProcessPreset_TargetRealtime_Fast);
     if (!scene) {
       throw std::runtime_error("Scene fails to be loaded!");
     }
     aiMesh* mesh = scene->mMeshes[0];
     size2_ = size_ * size_;
-    total_size_ = size * size * size / kBatchSize;
+    total_size_ = static_cast<uint32_t>(
+        (static_cast<uint64_t>(size_) * size_ * size_) / kBatchSize);
 
     /**
      * Reset voxels.
@@ -51,8 +51,11 @@ Voxelizer::Voxelizer(int size, const string& p_file, bool verbose)
   } catch (std::exception& e) {
     cout << e.what() << endl;
     if (!scene) delete scene;
+    return false;
   }
   if (verbose_) cout << "done." << endl;
+
+  return true;
 }
 
 /**
@@ -592,8 +595,8 @@ void Voxelizer::Write(const string& p_file, const string& format) {
 }
 
 /**
-* Write to file with compression.
-*/
+ * Write to file with compression.
+ */
 void Voxelizer::WriteCmpvox(const string& p_file) {
   if (verbose_) cout << "writing voxels to file..." << endl;
   int lx = (*mesh_vox_lb_)[0], ux = (*mesh_vox_ub_)[0], ly = (*mesh_vox_lb_)[1],

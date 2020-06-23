@@ -16,7 +16,7 @@ int main(int argc, char* argv[]) {
   po::options_description desc("Allowed options");
   desc.add_options() 
     ("help", "produce help message")
-    ("grid_size", po::value<int>()->default_value(256), "grid size, the granularity of voxelizer")
+    ("grid_size", po::value<int>()->default_value(256), "grid size of [1, 1024], the granularity of voxelizer")
     ("num_thread", po::value<int>()->default_value(4), "number of thread to run voxelizer")
     ("verbose", po::value<bool>()->default_value(false), "print debug info")
     ("input", po::value<string>(), "input file to be voxelized, file type will be inferred from file suffix")
@@ -35,6 +35,12 @@ int main(int argc, char* argv[]) {
   }
 
   int grid_size = vm["grid_size"].as<int>();
+
+  if (grid_size > 1024) {
+    cout << "current only supports not greater than 1024. contact topskychen@gmail.com if you need more grid_size." << endl;
+    return 1;
+  }
+
   int num_thread = vm["num_thread"].as<int>();
   string input_file = vm["input"].as<string>();
   string output_file = vm["output"].as<string>();
@@ -46,6 +52,10 @@ int main(int argc, char* argv[]) {
 
   timer.Restart();
   Voxelizer voxelizer(grid_size, input_file, verbose);
+  if (!voxelizer.Init()) {
+    cout << "voxelizer fails initialization ";  
+    return 1;
+  }
   timer.Stop();
   cout << "voxelizer initialization ";
   timer.PrintTimeInS();
