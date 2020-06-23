@@ -21,7 +21,7 @@ endif()
 
 if(NOT FCL_FOUND)
     # if pkfconfig is not installed, then fall back on more fragile detection
-    # of ccd
+    # of fcl
     find_path(FCL_INCLUDE_DIRS collision.h
         PATH_SUFFIXES fcl)
     find_path(FCL_LIBRARY_DIRS
