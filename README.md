@@ -5,7 +5,7 @@
 ----------
 
 
-This project voxelizes the meshes in STL file ***without*** the condition of *watertight*. ***It supports stl files only now.*** Basically, the project can be summarized into two steps:
+This project voxelizes the meshes in STL file ***without*** the condition of *watertight*. It supports many formats only now, since we are using `assimp` library to load the file. Basically, the project can be summarized into two steps:
 
 - Surface voxelization  
     For each piece of mesh (triangle) , we check the collided voxels in either way: 
@@ -25,12 +25,12 @@ This project voxelizes the meshes in STL file ***without*** the condition of *wa
 - Estimate the bounding box size of a triangle to guide which method is more suitable for surface voxelization.
 - Randomly permutate the triangles' order to reduce the possibility of lock, thus get better parallel performance.
 - Use filter-and-refine strategy to optimize the plain flood fill algorithm as follows: 
-	- Filter  
-	We fill the voxels along each axis, and stop when meet the mesh. For instance, fix (x,y), enumerate z in [0, maxz], if a voxel (x,y,z) is occupied, stop. The intuition is to mark all voxels which are visible along that axis. This idea is similar to flood fill but is much more efficient benefit from the lightweight operations. 
-	- Refine  
-	And it's worthy noting, after filtering, there are some *holes*, because they are not visible along any axis. But these are very few holes, so we can use flood fill again on them efficiently. 
-	
-	Although the time complexity is still O(n), it runs much faster than basic flood fill search.
+  - Filter  
+  We fill the voxels along each axis, and stop when meet the mesh. For instance, fix (x,y), enumerate z in [0, maxz], if a voxel (x,y,z) is occupied, stop. The intuition is to mark all voxels which are visible along that axis. This idea is similar to flood fill but is much more efficient benefit from the lightweight operations. 
+  - Refine  
+  And it's worthy noting, after filtering, there are some *holes*, because they are not visible along any axis. But these are very few holes, so we can use flood fill again on them efficiently. 
+  
+  Although the time complexity is still O(n), it runs much faster than basic flood fill search.
 - Compress the output file, for your convenience, I choose the simple version of output for default. But optimized version is prepared. Recall that the voxels are stored in binary string, such as '1110000'. To reduce the output file, please be noted only voxels in the minimal bounding box for mesh are output. It is further compressed as $value$ and $count$. For '1110000', it is compressed to (1)(2)(0)(3), (1)(2) means 3 consecutive 1, and (0)(3) means 4 consecutive 0. I use two bytes to record $value$ and $count$. Specifically, $value$ can be 0 or 1, and $count$ can be [0,255] which corresponds to [1,256]. To retrieve the coordination of a voxel in original space, let $(x,y,z)$ denote the voxel coordinate extracted from the output binary string, and the coordinate in voxelized space is $(x+x_{vox\_lb},y+y_{vox\_lb},z+z_{vox\_lb})$.
 - [TODO] Combine the coarse and fine strategy, i.e., do coarse grid size first to filter more unnecessary voxels.
 - [TODO] Use gpu
@@ -46,8 +46,8 @@ This project requires libraries (dependencies) as follows:
 
 - *boost*
 - *libccd*
-- *libfcl* 		
-	for collision checking (https://github.com/flexible-collision-library/fcl, version: tags/0.3.3)
+- *libfcl*    
+  for collision checking (https://github.com/flexible-collision-library/fcl, version: tags/0.3.3)
 - *assimp*  
     for loading STL file (https://github.com/assimp/assimp)
 - *cmake & make*
@@ -81,34 +81,26 @@ Next, in linux, use `make` in 'build' directory to compile the code.
   --output arg           output file to store voxelized result
   --format arg (=binvox) output format, can be binvox, rawvox, or cmpvox
   --mode arg (=solid)    voxelizer mode, surface or solid
-  --mesh_index arg (=0)  mesh index to voxelizer
+  --mesh_index arg (=0)  mesh index to be voxelized
 ```
-- Input
-	- grid_size  
-	e.g., 256
-	- number_of_threads  
-	e.g., 4
-	- stl_file  
-	e.g., kawada-hironx.stl
-	- output_file  
-	e.g., kawada-hironx.vox
-- Output (voxel file format, it is wrote in `binvox`, `rawvox` and `cmpvox` mode, the 'TestVox.cpp' in test folder provides a sample code to load the .rawvox file.)
-	- header
-		- grid_size   
-		one integer denotes the size of grid system, e.g., 256
-		- lowerbound_x lowerbound_y lowerbound_z  
-		three doubles denote the lower bound of the original system, e.g., -0.304904 -0.304904 -0.304904
-		- voxel_size   
-		one double denotes the unit size of a voxel in original system, e.g., 0.00391916
-	- data
-		- x y z  
-		three integers denote the voxel coordinate in grid system, e.g, 30 66 194
+
+- Output (voxel file format, it is wrote in `binvox`, `rawvox` and `cmpvox` mode, the 'read_rawvox.cpp' in test folder provides a sample code to load the .rawvox file.) `rawvox` is the following format:
+  - header
+    - grid_size   
+    one integer denotes the size of grid system, e.g., 256
+    - lowerbound_x lowerbound_y lowerbound_z  
+    three doubles denote the lower bound of the original system, e.g., -0.304904 -0.304904 -0.304904
+    - voxel_size   
+    one double denotes the unit size of a voxel in original system, e.g., 0.00391916
+  - data
+    - x y z  
+    three integers denote the voxel coordinate in grid system, e.g, 30 66 194
         - ...   
 When we have the voxel (x,y,z), we can get the box in original space as follows: (lowerbound_x + x\*voxel_size, lowerbound_y + y\*voxel_size, lowerbound_z + z\*voxel_size), (lowerbound_x + (x+1)\*voxel_size, lowerbound_y + (y+1)\*voxel_size, lowerbound_z + (z+1)\*voxel_size).
 
 When you are in 'build' directory, a running example is: 
 
-```./bin/voxelizer 256 4 ../data/kawada-hironx.stl ../data/kawada-hironx.vox```
+``` ./bin/voxelizer --input=../data/ironman.obj --output=../playground/ironman_2.binvox --grid_size=256 --verbose=on```
 
 
 
@@ -120,25 +112,25 @@ ofstream* output = new ofstream(p_file.c_str(), ios::out | ios::binary);
 *output << lowerbound_x << " " << lowerbound_y << " " << lowerbound_z << endl;
 *output << voxel_size << endl;
 for (x,y,z) in voxels:
-	*output << x << " " << y << " " << z << endl;
+  *output << x << " " << y << " " << z << endl;
 ```
-		
+    
 
 
-<!--	- header
-		- $x_{grid\size_}y_{grid\size_}z_{grid\size_}$
-		three integer denote the grid sizes, e.g., 256 256 256
-		- $x_{lb}y_{lb}z_{lb}$  
-		three doubles denote the lower bounds of the original space, e.g., -0.304904 -0.304904 -0.304904
-		- $x_{vox\unit_}y_{vox\unit_}z_{vox\unit_}$  
-		three doubles denote the a voxel's size in original space, e.g., 0.00783833 0.00783833 0.00783833
-		- $x_{vox\_lb}$$y_{vox\_lb}$$z_{vox\_lb}$
-		three integers denote the lower bound of minimal bounding box in voxelized space, e.g., 30 0 8
+<!--  - header
+    - $x_{grid\size_}y_{grid\size_}z_{grid\size_}$
+    three integer denote the grid sizes, e.g., 256 256 256
+    - $x_{lb}y_{lb}z_{lb}$  
+    three doubles denote the lower bounds of the original space, e.g., -0.304904 -0.304904 -0.304904
+    - $x_{vox\unit_}y_{vox\unit_}z_{vox\unit_}$  
+    three doubles denote the a voxel's size in original space, e.g., 0.00783833 0.00783833 0.00783833
+    - $x_{vox\_lb}$$y_{vox\_lb}$$z_{vox\_lb}$
+    three integers denote the lower bound of minimal bounding box in voxelized space, e.g., 30 0 8
         - $x_{vox\size_}$$y_{vox\size_}$$z_{vox\size_}$
-		three integers denote the minimal bounding box's size in voxelized space, e.g., 
-	- data	
-		- $value_{01}count_{[0,255]}$...  
-		Recall that the voxels are stored in binary string, such as '1110000'. To reduce the output file, please be noted only voxels in the minimal bounding box for mesh are output. It is further compressed as $value$ and $count$. For '1110000', it is compressed to (1)(2)(0)(3), (1)(2) means 3 consecutive 1, and (0)(3) means 4 consecutive 0. I use two bytes to record $value$ and $count$. Specifically, $value$ can be 0 or 1, and $count$ can be [0,255] which corresponds to [1,256]. To retrieve the coordination of a voxel in original space, let $(x,y,z)$ denote the voxel coordinate extracted from the output binary string, and the coordinate in voxelized space is $(x+x_{vox\_lb},y+y_{vox\_lb},z+z_{vox\_lb})$.
+    three integers denote the minimal bounding box's size in voxelized space, e.g., 
+  - data  
+    - $value_{01}count_{[0,255]}$...  
+    Recall that the voxels are stored in binary string, such as '1110000'. To reduce the output file, please be noted only voxels in the minimal bounding box for mesh are output. It is further compressed as $value$ and $count$. For '1110000', it is compressed to (1)(2)(0)(3), (1)(2) means 3 consecutive 1, and (0)(3) means 4 consecutive 0. I use two bytes to record $value$ and $count$. Specifically, $value$ can be 0 or 1, and $count$ can be [0,255] which corresponds to [1,256]. To retrieve the coordination of a voxel in original space, let $(x,y,z)$ denote the voxel coordinate extracted from the output binary string, and the coordinate in voxelized space is $(x+x_{vox\_lb},y+y_{vox\_lb},z+z_{vox\_lb})$.
 -->
 
 
