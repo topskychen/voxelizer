@@ -7,22 +7,26 @@
 
 #ifndef TIMER_H_
 #define TIMER_H_
-#include <ctime>
-#include <iostream>
 #include <sys/time.h>
 
+#include <ctime>
+#include <iostream>
+
+namespace voxelizer {
+
 class Timer {
+  struct timeval time_;
+  double start_, end_;
 
-	struct timeval _time;
-	double _start, _end;
-
-public:
-	Timer();
-	virtual ~Timer();
-	void Restart();
-	void Stop();
-	double TimeInS();
-	void PrintTimeInS();
+ public:
+  Timer();
+  virtual ~Timer();
+  void Restart();
+  void Stop();
+  double TimeInS();
+  void PrintTimeInS();
 };
+
+}  // namespace voxelizer
 
 #endif /* TIMER_H_ */

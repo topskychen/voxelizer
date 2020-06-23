@@ -16,7 +16,8 @@ This project voxelizes the meshes in STL file ***without*** the condition of *wa
 - Solid voxelization  
     When equipped with surface voxelization, the solid voxelization can be simple: flood fill. We try to flood fill the outer space of the meshes like carving the wood, since it is more simple and doesn't requires *watertight* property. However, the basic flood fill with bfs is too heavy and time-consuming, optimizations are proposed here (see below). The time complexity is O(n), where n is the voxel number in the bounding box of whole mesh.
 
-#####Optimizations
+## Optimizations
+----------
 
 - Use thread pool. 
 - Use bit compression to record and order the voxel. First, I store voxel (x, y, z) to index=x\*size\*size + y\*size + size, where size is the voxel grid size, and I call the compressed format as *index*. For instance, with size=4, index=1 indicates voxel (0,0,1), index=4 indicates voxel (0,1,0). With indexes, all voxels can be represented with a binary string. For instance, '010010' means the voxels with indexes of 1 and 4 are collided with the mesh, while others are not. The binary string is further compressed with 32-bit unsigned int array.
@@ -44,11 +45,13 @@ This project voxelizes the meshes in STL file ***without*** the condition of *wa
 This project requires libraries (dependencies) as follows:
 
 - *boost*
+- *libccd*
 - *libfcl* 		
-	for collision checking (https://github.com/flexible-collision-library/fcl, version: tags/0.3.3), ***libccd*** is required
+	for collision checking (https://github.com/flexible-collision-library/fcl, version: tags/0.3.3)
 - *assimp*  
     for loading STL file (https://github.com/assimp/assimp)
 - *cmake & make*
+    make sure `pkg-config` is installed.
 
 
 CMakeLists.txt is used to generate makefiles. To build this project, in command line, run
@@ -99,7 +102,7 @@ When you are in 'build' directory, a running example is:
 For your reference, the pseudo output code for output is:
 
 ```C++
-ofstream* output = new ofstream(pFile.c_str(), ios::out | ios::binary);
+ofstream* output = new ofstream(p_file.c_str(), ios::out | ios::binary);
 *output << grid_size << endl;
 *output << lowerbound_x << " " << lowerbound_y << " " << lowerbound_z << endl;
 *output << voxel_size << endl;
@@ -110,15 +113,15 @@ for (x,y,z) in voxels:
 
 
 <!--	- header
-		- $x_{grid\_size}y_{grid\_size}z_{grid\_size}$
+		- $x_{grid\size_}y_{grid\size_}z_{grid\size_}$
 		three integer denote the grid sizes, e.g., 256 256 256
 		- $x_{lb}y_{lb}z_{lb}$  
 		three doubles denote the lower bounds of the original space, e.g., -0.304904 -0.304904 -0.304904
-		- $x_{vox\_unit}y_{vox\_unit}z_{vox\_unit}$  
+		- $x_{vox\unit_}y_{vox\unit_}z_{vox\unit_}$  
 		three doubles denote the a voxel's size in original space, e.g., 0.00783833 0.00783833 0.00783833
 		- $x_{vox\_lb}$$y_{vox\_lb}$$z_{vox\_lb}$
 		three integers denote the lower bound of minimal bounding box in voxelized space, e.g., 30 0 8
-        - $x_{vox\_size}$$y_{vox\_size}$$z_{vox\_size}$
+        - $x_{vox\size_}$$y_{vox\size_}$$z_{vox\size_}$
 		three integers denote the minimal bounding box's size in voxelized space, e.g., 
 	- data	
 		- $value_{01}count_{[0,255]}$...  

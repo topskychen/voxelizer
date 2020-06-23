@@ -8,6 +8,11 @@
 #ifndef TRIBOX_H_
 #define TRIBOX_H_
 
-int TriBoxOverlap(float boxcenter[3],float boxhalfsize[3],float triverts[3][3]);
+namespace voxelizer {
+
+int TriBoxOverlap(float boxcenter[3], float boxhalfsize[3],
+                  float triverts[3][3]);
+
+}
 
 #endif /* TRIBOX_H_ */

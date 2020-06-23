@@ -7,29 +7,29 @@
 
 #include "threadPool.h"
 
-ThreadPool::ThreadPool(size_t nThreads) {
-	Restart(nThreads);
-}
+namespace voxelizer {
+
+ThreadPool::ThreadPool(size_t n_threads) { Restart(n_threads); }
 
 void ThreadPool::Stop(bool wait) {
-	if (wait) {
-	  _work.reset(); // if not delete this, io_service::run will never exit
-	  _threadPool.join_all();
-	  _service.stop();
-	} else {
-	  _service.stop();
-	  _threadPool.join_all();
-	  _work.reset();
-	}
+  if (wait) {
+    work_.reset();  // if not delete this, io_service::run will never exit
+    thread_pool_.join_all();
+    service_.stop();
+  } else {
+    service_.stop();
+    thread_pool_.join_all();
+    work_.reset();
+  }
 }
 
 void ThreadPool::Restart(size_t nThreads) {
-	_work.reset(new boost::asio::io_service::work(_service));
-		for (std::size_t i = 0; i < nThreads; ++i)
-			_threadPool.create_thread(boost::bind(&boost::asio::io_service::run, &_service));
+  work_.reset(new boost::asio::io_service::work(service_));
+  for (std::size_t i = 0; i < nThreads; ++i)
+    thread_pool_.create_thread(
+        boost::bind(&boost::asio::io_service::run, &service_));
 }
 
-ThreadPool::~ThreadPool() {
-	_threadPool.join_all();
-}
+ThreadPool::~ThreadPool() { thread_pool_.join_all(); }
 
+}  // namespace voxelizer

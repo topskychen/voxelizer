@@ -10,23 +10,27 @@
 
 #include <boost/asio/io_service.hpp>
 #include <boost/bind.hpp>
-#include <boost/thread/thread.hpp>
 #include <boost/function.hpp>
+#include <boost/thread/thread.hpp>
+
+namespace voxelizer {
 
 class ThreadPool {
-	boost::shared_ptr<boost::asio::io_service::work> _work;
-	boost::asio::io_service _service;
-	boost::thread_group _threadPool;
+  boost::shared_ptr<boost::asio::io_service::work> work_;
+  boost::asio::io_service service_;
+  boost::thread_group thread_pool_;
 
-public:
-	void Stop(bool wait=true);
-	ThreadPool(size_t nThreads = 1);
-	void Restart(size_t nThreads = 1);
-	template<typename T>
-	void Run(T func) {
-		_service.post(func);
-	}
-	virtual ~ThreadPool();
+ public:
+  void Stop(bool wait = true);
+  ThreadPool(size_t n_threads = 1);
+  void Restart(size_t n_threads = 1);
+  template <typename T>
+  void Run(T func) {
+    service_.post(func);
+  }
+  virtual ~ThreadPool();
 };
+
+}  // namespace voxelizer
 
 #endif /* THREADPOOL_H_ */
