@@ -69,7 +69,20 @@ Next, in linux, use `make` in 'build' directory to compile the code.
 
 ----------
 
+`voxelizer --help` will give all the parameters.
 
+```Allowed options:
+  --help                 produce help message
+  --grid_size arg (=256) grid size of [1, 1024], the granularity of voxelizer
+  --num_thread arg (=4)  number of thread to run voxelizer
+  --verbose arg (=0)     print debug info
+  --input arg            input file to be voxelized, file type will be inferred
+                         from file suffix
+  --output arg           output file to store voxelized result
+  --format arg (=binvox) output format, can be binvox, rawvox, or cmpvox
+  --mode arg (=solid)    voxelizer mode, surface or solid
+  --mesh_index arg (=0)  mesh index to voxelizer
+```
 - Input
 	- grid_size  
 	e.g., 256

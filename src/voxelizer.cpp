@@ -16,19 +16,6 @@ bool Voxelizer::Init() {
   is_init_ = false;
   const aiScene* scene;
   try {
-    /*
-     * Load scene
-     * */
-    Assimp::Importer importer;
-    scene = importer.ReadFile(p_file_, aiProcessPreset_TargetRealtime_Fast);
-    if (!scene) {
-      throw std::runtime_error("Scene fails to be loaded!");
-    }
-    aiMesh* mesh = scene->mMeshes[0];
-    size2_ = size_ * size_;
-    total_size_ = static_cast<uint32_t>(
-        (static_cast<uint64_t>(size_) * size_ * size_) / kBatchSize);
-
     /**
      * Reset voxels.
      */
@@ -36,6 +23,28 @@ bool Voxelizer::Init() {
     voxels_buffer_.reset(new AUint[total_size_], ArrayDeleter<AUint>());
     memset(voxels_.get(), 0, total_size_ * sizeof(int));
     memset(voxels_buffer_.get(), 0, total_size_ * sizeof(int));
+
+    /*
+     * Load scene
+     * */
+    Assimp::Importer importer;
+    scene = importer.ReadFile(p_file_, aiProcessPreset_TargetRealtime_Quality | aiProcess_OptimizeGraph | aiProcess_OptimizeMeshes);
+    if (!scene) {
+      throw std::runtime_error("Scene fails to be loaded!");
+    }
+
+    if (verbose_) cout << "mesh number: " << scene->mNumMeshes << endl;
+
+    if (scene->mNumMeshes == 0) {
+      throw std::runtime_error("0 mesh in the scene!");         
+    }
+
+    if (scene->mNumMeshes <= mesh_index_) {
+      throw std::runtime_error("Required mesh index out of range!");          
+    }
+
+    // TODO(topskychen@gmail.com): consider all the meshes when mesh_index_ is -1.
+    aiMesh* mesh = scene->mMeshes[mesh_index_];
 
     /**
      * Store info.

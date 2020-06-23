@@ -32,6 +32,7 @@ const int kBatchSize = 32;
 class Voxelizer {
   bool is_init_;
   bool verbose_;
+  int mesh_index_;
   string p_file_;
 
   V3SP mesh_lb_, mesh_ub_;          // location
@@ -98,8 +99,12 @@ class Voxelizer {
   void WriteRawvox(const string& p_file);
   void WriteCmpvox(const string& p_file);
   bool Init();
-  Voxelizer(int size, const string& p_file, bool verbose)
-      : size_(size), p_file_(p_file), verbose_(verbose) {}
+  Voxelizer(int size, const string& p_file, int mesh_index=0, bool verbose=false)
+      : size_(size), p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {
+        size2_ = size_ * size_;
+        total_size_ = static_cast<uint32_t>(
+          (static_cast<uint64_t>(size_) * size_ * size_) / kBatchSize);
+      }
   virtual ~Voxelizer();
 };
 

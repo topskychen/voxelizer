@@ -55,7 +55,7 @@ class CollisionChecker {
       : size_(size),
         num_thread_(num_thread),
         p_file_(p_file),
-        voxelizer_(new voxelizer::Voxelizer(size, p_file, false)) {}
+        voxelizer_(new voxelizer::Voxelizer(size, p_file)) {}
   virtual ~CollisionChecker();
 };
 
