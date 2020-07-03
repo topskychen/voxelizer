@@ -6,6 +6,7 @@
  */
 
 #include <exception>
+#include <boost/format.hpp>
 
 #include "voxelizer.h"
 
@@ -148,7 +149,13 @@ inline void Voxelizer::LoadFromMesh(const aiMesh* mesh) {
   bound_.reset(new Vec3f((*ub_ - *lb_)));
 
   faces_.reset(new Vec3f[num_faces_], ArrayDeleter<Vec3f>());
+  if (mesh->mPrimitiveTypes != kPrimitiveTriangleType) {
+    throw std::runtime_error(boost::str(boost::format("Mesh face primitive type expects %d indices but received %d.")%kPrimitiveTriangleType%mesh->mPrimitiveTypes));
+  }
   for (size_t i = 0; i < num_faces_; ++i) {
+    if (mesh->mFaces[i].mNumIndices != kTriangleNumIndices) {
+      throw std::runtime_error(boost::str(boost::format("Triangle face expects %d indices but received %d.")%kTriangleNumIndices%mesh->mFaces[i].mNumIndices));
+    }
     faces_.get()[i] =
         Vec3f(mesh->mFaces[i].mIndices[0], mesh->mFaces[i].mIndices[1],
               mesh->mFaces[i].mIndices[2]);

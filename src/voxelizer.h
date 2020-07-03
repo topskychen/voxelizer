@@ -26,6 +26,8 @@ using namespace std;
 namespace voxelizer {
 
 const int kBatchSize = 32;
+const int kPrimitiveTriangleType = 0x4;
+const int kTriangleNumIndices = 3;
 
 #define GETBIT(x, i) ((x >> (i % kBatchSize)) & 1)
 
