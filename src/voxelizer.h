@@ -28,6 +28,7 @@ namespace voxelizer {
 const int kBatchSize = 32;
 const int kPrimitiveTriangleType = 0x4;
 const int kTriangleNumIndices = 3;
+const Vec3f kEpsBox(0.0001, 0.0001, 0.0001); // epsilon box
 
 #define GETBIT(x, i) ((x >> (i % kBatchSize)) & 1)
 

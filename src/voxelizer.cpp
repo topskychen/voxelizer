@@ -5,8 +5,8 @@
  *      Author: chenqian
  */
 
-#include <exception>
 #include <boost/format.hpp>
+#include <exception>
 
 #include "voxelizer.h"
 
@@ -29,7 +29,9 @@ bool Voxelizer::Init() {
      * Load scene
      * */
     Assimp::Importer importer;
-    scene = importer.ReadFile(p_file_, aiProcessPreset_TargetRealtime_Quality | aiProcess_OptimizeGraph | aiProcess_OptimizeMeshes);
+    scene = importer.ReadFile(p_file_, aiProcessPreset_TargetRealtime_Quality |
+                                           aiProcess_OptimizeGraph |
+                                           aiProcess_OptimizeMeshes);
     if (!scene) {
       throw std::runtime_error("Scene fails to be loaded!");
     }
@@ -37,14 +39,15 @@ bool Voxelizer::Init() {
     if (verbose_) cout << "mesh number: " << scene->mNumMeshes << endl;
 
     if (scene->mNumMeshes == 0) {
-      throw std::runtime_error("0 mesh in the scene!");         
+      throw std::runtime_error("0 mesh in the scene!");
     }
 
     if (scene->mNumMeshes <= mesh_index_) {
-      throw std::runtime_error("Required mesh index out of range!");          
+      throw std::runtime_error("Required mesh index out of range!");
     }
 
-    // TODO(topskychen@gmail.com): consider all the meshes when mesh_index_ is -1.
+    // TODO(topskychen@gmail.com): consider all the meshes when mesh_index_ is
+    // -1.
     aiMesh* mesh = scene->mMeshes[mesh_index_];
 
     /**
@@ -132,8 +135,9 @@ inline void Voxelizer::LoadFromMesh(const aiMesh* mesh) {
     }
   }
 
-  mesh_lb_.reset(new Vec3f((*mesh_lb_) - Vec3f(0.0001, 0.0001, 0.0001)));
-  mesh_ub_.reset(new Vec3f((*mesh_ub_) + Vec3f(0.0001, 0.0001, 0.0001)));
+  // Add an epsilon box to bound box the whole mesh spce.
+  mesh_lb_.reset(new Vec3f((*mesh_lb_) - kEpsBox));
+  mesh_ub_.reset(new Vec3f((*mesh_ub_) + kEpsBox));
 
   /**
    *
@@ -150,11 +154,16 @@ inline void Voxelizer::LoadFromMesh(const aiMesh* mesh) {
 
   faces_.reset(new Vec3f[num_faces_], ArrayDeleter<Vec3f>());
   if (mesh->mPrimitiveTypes != kPrimitiveTriangleType) {
-    throw std::runtime_error(boost::str(boost::format("Mesh face primitive type expects %d indices but received %d.")%kPrimitiveTriangleType%mesh->mPrimitiveTypes));
+    throw std::runtime_error(boost::str(
+        boost::format(
+            "Mesh face primitive type expects %d indices but received %d.") %
+        kPrimitiveTriangleType % mesh->mPrimitiveTypes));
   }
   for (size_t i = 0; i < num_faces_; ++i) {
     if (mesh->mFaces[i].mNumIndices != kTriangleNumIndices) {
-      throw std::runtime_error(boost::str(boost::format("Triangle face expects %d indices but received %d.")%kTriangleNumIndices%mesh->mFaces[i].mNumIndices));
+      throw std::runtime_error(boost::str(
+          boost::format("Triangle face expects %d indices but received %d.") %
+          kTriangleNumIndices % mesh->mFaces[i].mNumIndices));
     }
     faces_.get()[i] =
         Vec3f(mesh->mFaces[i].mIndices[0], mesh->mFaces[i].mIndices[1],
@@ -164,12 +173,14 @@ inline void Voxelizer::LoadFromMesh(const aiMesh* mesh) {
 
   Vec3f half_unit = (*bound_) / ((float)size_ * 2);
   half_unit_.reset(new Vec3f(half_unit));
-  mesh_vox_lb_ = GetVoxel(mesh_lb_);
-  mesh_vox_ub_ = GetVoxel(mesh_ub_);
 
-  if (verbose_) cout << "space : " << *lb_ << ", " << *ub_ << endl;
-  if (verbose_)
-    cout << "mesh bound : " << *mesh_lb_ << ", " << *mesh_ub_ << endl;
+  // The real voxel bounding box should extract the epsilon box.
+  mesh_vox_lb_ = GetVoxel(*mesh_lb_ + kEpsBox);
+  mesh_vox_ub_ = GetVoxel(*mesh_ub_ - kEpsBox);
+
+  if (verbose_) cout << "space: " << *lb_ << ", " << *ub_ << endl;
+  cout << "mesh bound: " << *mesh_lb_ << ", " << *mesh_ub_ << endl;
+  cout << "voxel bound: " << *mesh_vox_lb_ << ", " << *mesh_vox_ub_ << endl;
 }
 
 /**
@@ -339,8 +350,8 @@ inline void Voxelizer::RandomPermutation(const V3SP& data, int num) {
 }
 
 inline void Voxelizer::FillYZ(const int x) {
-  int ly = (*mesh_vox_lb_)[1], uy = (*mesh_vox_ub_)[1], lz = (*mesh_vox_lb_)[2],
-      uz = (*mesh_vox_ub_)[2];
+  const int ly = (*mesh_vox_lb_)[1], uy = (*mesh_vox_ub_)[1],
+            lz = (*mesh_vox_lb_)[2], uz = (*mesh_vox_ub_)[2];
   unsigned int voxel_int, tmp;
   for (int y = ly, z; y <= uy; ++y) {
     for (z = lz; z <= uz; ++z) {
@@ -368,9 +379,10 @@ inline void Voxelizer::FillYZ(const int x) {
 }
 
 inline void Voxelizer::FillYZ2(const int x) {
-  int lx = (*mesh_vox_lb_)[0], ux = (*mesh_vox_ub_)[0], ly = (*mesh_vox_lb_)[1],
-      uy = (*mesh_vox_ub_)[1], lz = (*mesh_vox_lb_)[2], uz = (*mesh_vox_ub_)[2],
-      nx, ny;
+  const int lx = (*mesh_vox_lb_)[0], ux = (*mesh_vox_ub_)[0],
+            ly = (*mesh_vox_lb_)[1], uy = (*mesh_vox_ub_)[1],
+            lz = (*mesh_vox_lb_)[2], uz = (*mesh_vox_ub_)[2];
+  int nx, ny;
   unsigned int voxel_int, tmp;
   for (int y = ly, z; y <= uy; ++y) {
     for (z = lz; z <= uz; ++z) {
@@ -414,8 +426,8 @@ inline void Voxelizer::FillYZ2(const int x) {
 }
 
 inline void Voxelizer::FillXZ(const int y) {
-  int lx = (*mesh_vox_lb_)[0], ux = (*mesh_vox_ub_)[0], lz = (*mesh_vox_lb_)[2],
-      uz = (*mesh_vox_ub_)[2];
+  const int lx = (*mesh_vox_lb_)[0], ux = (*mesh_vox_ub_)[0],
+            lz = (*mesh_vox_lb_)[2], uz = (*mesh_vox_ub_)[2];
   unsigned int voxel_int, tmp;
   for (int z = lz, x; z <= uz; ++z) {
     for (x = lx; x <= ux; ++x) {
@@ -443,9 +455,10 @@ inline void Voxelizer::FillXZ(const int y) {
 }
 
 inline void Voxelizer::FillXZ2(const int y) {
-  int lx = (*mesh_vox_lb_)[0], ux = (*mesh_vox_ub_)[0], ly = (*mesh_vox_lb_)[1],
-      uy = (*mesh_vox_ub_)[1], lz = (*mesh_vox_lb_)[2], uz = (*mesh_vox_ub_)[2],
-      ny, nz;
+  const int lx = (*mesh_vox_lb_)[0], ux = (*mesh_vox_ub_)[0],
+            ly = (*mesh_vox_lb_)[1], uy = (*mesh_vox_ub_)[1],
+            lz = (*mesh_vox_lb_)[2], uz = (*mesh_vox_ub_)[2];
+  int ny, nz;
   unsigned int voxel_int, tmp;
   for (int z = lz, x; z <= uz; ++z) {
     for (x = lx; x <= ux; ++x) {
@@ -489,8 +502,8 @@ inline void Voxelizer::FillXZ2(const int y) {
 }
 
 inline void Voxelizer::FillXY(const int z) {
-  int ly = (*mesh_vox_lb_)[1], uy = (*mesh_vox_ub_)[1], lx = (*mesh_vox_lb_)[0],
-      ux = (*mesh_vox_ub_)[0];
+  const int ly = (*mesh_vox_lb_)[1], uy = (*mesh_vox_ub_)[1],
+            lx = (*mesh_vox_lb_)[0], ux = (*mesh_vox_ub_)[0];
   unsigned int voxel_int, tmp;
   for (int x = lx, y; x <= ux; ++x) {
     for (y = ly; y <= uy; ++y) {
@@ -518,9 +531,10 @@ inline void Voxelizer::FillXY(const int z) {
 }
 
 inline void Voxelizer::FillXY2(const int z) {
-  int lx = (*mesh_vox_lb_)[0], ux = (*mesh_vox_ub_)[0], ly = (*mesh_vox_lb_)[1],
-      uy = (*mesh_vox_ub_)[1], lz = (*mesh_vox_lb_)[2], uz = (*mesh_vox_ub_)[2],
-      nx, nz;
+  const int lx = (*mesh_vox_lb_)[0], ux = (*mesh_vox_ub_)[0],
+            ly = (*mesh_vox_lb_)[1], uy = (*mesh_vox_ub_)[1],
+            lz = (*mesh_vox_lb_)[2], uz = (*mesh_vox_ub_)[2];
+  int nx, nz;
   unsigned int voxel_int, tmp;
   for (int x = lx, y; x <= ux; ++x) {
     for (y = ly; y <= uy; ++y) {
@@ -565,8 +579,9 @@ inline void Voxelizer::FillXY2(const int z) {
 
 inline void Voxelizer::RunSolidTask(size_t num_thread) {
   ThreadPool tp(num_thread);
-  int lx = (*mesh_vox_lb_)[0], ux = (*mesh_vox_ub_)[0], ly = (*mesh_vox_lb_)[1],
-      uy = (*mesh_vox_ub_)[1], lz = (*mesh_vox_lb_)[2], uz = (*mesh_vox_ub_)[2];
+  const int lx = (*mesh_vox_lb_)[0], ux = (*mesh_vox_ub_)[0],
+            ly = (*mesh_vox_lb_)[1], uy = (*mesh_vox_ub_)[1],
+            lz = (*mesh_vox_lb_)[2], uz = (*mesh_vox_ub_)[2];
   for (int x = lx; x <= ux; ++x) {
     tp.Run(boost::bind(&Voxelizer::FillYZ, this, x));
   }
@@ -581,8 +596,9 @@ inline void Voxelizer::RunSolidTask(size_t num_thread) {
 
 inline void Voxelizer::RunSolidTask2(size_t num_thread) {
   ThreadPool tp(num_thread);
-  int lx = (*mesh_vox_lb_)[0], ux = (*mesh_vox_ub_)[0], ly = (*mesh_vox_lb_)[1],
-      uy = (*mesh_vox_ub_)[1], lz = (*mesh_vox_lb_)[2], uz = (*mesh_vox_ub_)[2];
+  const int lx = (*mesh_vox_lb_)[0], ux = (*mesh_vox_ub_)[0],
+            ly = (*mesh_vox_lb_)[1], uy = (*mesh_vox_ub_)[1],
+            lz = (*mesh_vox_lb_)[2], uz = (*mesh_vox_ub_)[2];
   for (int x = lx; x <= ux; ++x) {
     tp.Run(boost::bind(&Voxelizer::FillYZ2, this, x));
   }

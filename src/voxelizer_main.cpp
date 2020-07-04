@@ -41,6 +41,11 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  if (!vm.count("input") || !vm.count("output")) {
+    cout << "missing parameters input or output, using --help to check." << endl;
+    return 1;
+  }
+
   int grid_size = vm["grid_size"].as<int>();
 
   if (grid_size > 1024) {
