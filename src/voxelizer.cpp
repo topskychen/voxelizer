@@ -208,16 +208,16 @@ inline void Voxelizer::RunSurfaceTask(const int tri_id) {
   tri->computeLocalAABB();
   const V3SP lb = GetVoxel(tri->aabb_local.min_);
   const V3SP ub = GetVoxel(tri->aabb_local.max_);
-  int lx = (*lb)[0], ux = (*ub)[0], ly = (*lb)[1], uy = (*ub)[1], lz = (*lb)[2],
+  
+  const int lx = (*lb)[0], ux = (*ub)[0], ly = (*lb)[1], uy = (*ub)[1], lz = (*lb)[2],
       uz = (*ub)[2];
-
   /**
    * when the estimated voxels are too large, optimize with bfs.
    */
   int count = 0;
   int esti = min(ux - lx, min(uy - ly, uz - lz));
-  unsigned int voxel_int, tmp;
-  if (esti < 100) {
+  if (esti < kThresholdBfsSurface) {
+    unsigned int voxel_int, tmp;
     V3SP vxlBox(new Vec3f(0, 0, 0));
     for (int x = lx, y, z; x <= ux; ++x) {
       for (y = ly; y <= uy; ++y) {
