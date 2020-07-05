@@ -14,7 +14,8 @@ endmacro(add_check_test)
 include_directories ("${PROJECT_SOURCE_DIR}/src/")
 
 
-file(GLOB_RECURSE voxelizer_SRC ${PROJECT_SOURCE_DIR}/src/timer.cpp ${PROJECT_SOURCE_DIR}/src/timer.h ${PROJECT_SOURCE_DIR}/src/voxelizer.cpp ${PROJECT_SOURCE_DIR}/src/voxelizer.h ${PROJECT_SOURCE_DIR}/src/threadPool.cpp ${PROJECT_SOURCE_DIR}/src/threadPool.h ${PROJECT_SOURCE_DIR}/src/commons.cpp ../src/commons.h ${PROJECT_SOURCE_DIR}/src/triBox.cpp ${PROJECT_SOURCE_DIR}/src/triBox.h)
+file(GLOB_RECURSE voxelizer_SRC ${PROJECT_SOURCE_DIR}/src/timer.cpp ${PROJECT_SOURCE_DIR}/src/timer.h ${PROJECT_SOURCE_DIR}/src/voxelizer.cpp ${PROJECT_SOURCE_DIR}/src/voxelizer.h ${PROJECT_SOURCE_DIR}/src/thread_pool.cpp ${PROJECT_SOURCE_DIR}/src/thread_pool.h ${PROJECT_SOURCE_DIR}/src/commons.cpp ../src/commons.h ${PROJECT_SOURCE_DIR}/src/tri_box.cpp ${PROJECT_SOURCE_DIR}/src/tri_box.h)
 
-add_check_test(collisionChecker collisionChecker.cpp collisionChecker.h ${voxelizer_SRC})
+add_check_test(collision_checker collision_checker.cpp collision_checker.h ${voxelizer_SRC})
+add_check_test(read_rawvox read_rawvox.cpp ${voxelizer_SRC})
 

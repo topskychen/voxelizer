@@ -17,8 +17,8 @@
 #    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
 #)
 
-set(voxelizer_SRC timer.cpp timer.h voxelizer.cpp voxelizer.h threadPool.cpp threadPool.h commons.cpp commons.h triBox.cpp triBox.h)
-add_executable(voxelizer voxelizerMain.cpp ${voxelizer_SRC})
+set(voxelizer_SRC timer.cpp timer.h voxelizer.cpp voxelizer.h thread_pool.cpp thread_pool.h commons.cpp commons.h tri_box.cpp tri_box.h)
+add_executable(voxelizer voxelizer_main.cpp ${voxelizer_SRC})
 target_link_libraries(voxelizer
     ${ASSIMP_LIBRARIES}
     ${FCL_LIBRARIES}
@@ -27,11 +27,12 @@ target_link_libraries(voxelizer
     ${Boost_THREAD_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
 )
 #add_library(${PROJECT_NAME} STATIC ${voxelizer_SRC})
 
-#add_executable(collisionChecker collisionChecker.cpp collisionChecker.h timer.cpp timer.h voxelizer.cpp voxelizer.h threadPool.cpp threadPool.h commons.cpp commons.h triBox.cpp triBox.h)
-#target_link_libraries(collisionChecker
+#add_executable(collision_checker collision_checker.cpp collision_checker.h timer.cpp timer.h voxelizer.cpp voxelizer.h thread_pool.cpp thread_pool.h commons.cpp commons.h tri_box.cpp tri_box.h)
+#target_link_libraries(collision_checker
 #    ${ASSIMP_LIBRARIES}
 #    ${FCL_LIBRARIES}
 #    ${Boost_ATOMIC_LIBRARY}

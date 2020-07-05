@@ -3,7 +3,7 @@ project(voxelizer CXX)
 
 find_package(PkgConfig) # pkg_check_modules
 
-find_package(Boost COMPONENTS atomic thread date_time filesystem system unit_test_framework REQUIRED)
+find_package(Boost COMPONENTS atomic thread date_time filesystem system unit_test_framework program_options REQUIRED)
 
 if(Boost_FOUND)
 	include_directories(${Boost_INCLUDE_DIR})
@@ -21,7 +21,7 @@ endif()
 
 if(NOT FCL_FOUND)
     # if pkfconfig is not installed, then fall back on more fragile detection
-    # of ccd
+    # of fcl
     find_path(FCL_INCLUDE_DIRS collision.h
         PATH_SUFFIXES fcl)
     find_path(FCL_LIBRARY_DIRS
