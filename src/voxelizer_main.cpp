@@ -4,64 +4,39 @@
  *  Created on: 1 Jul, 2014
  *      Author: chenqian
  */
-#include <boost/program_options.hpp>
+#include "absl/flags/flag.h"
+#include "absl/flags/parse.h"
+#include "absl/base/internal/raw_logging.h"
 
 #include "voxelizer.h"
 
 using voxelizer::Timer;
 using voxelizer::Voxelizer;
 
-namespace po = boost::program_options;
+ABSL_FLAG(int, grid_size, 256, "grid size of [1, 1024], the granularity of voxelizer");
+ABSL_FLAG(int, num_thread, 4, "number of thread to run voxelizer");
+ABSL_FLAG(bool, verbose, false, "print debug info");
+ABSL_FLAG(std::string, input, "", "input file to be voxelized, file type will be inferred from file suffix");
+ABSL_FLAG(std::string, output, "", "output file to store voxelized result");
+ABSL_FLAG(std::string, format, "binvox", "output format, can be binvox, rawvox, or cmpvox");
+ABSL_FLAG(std::string, mode, "solid", "voxelizer mode, surface or solid");
+ABSL_FLAG(int, mesh_index, 0, "mesh index to be voxelized");
 
 int main(int argc, char* argv[]) {
-  po::options_description desc("Allowed options");
-  desc.add_options()("help", "produce help message")(
-      "grid_size", po::value<int>()->default_value(256),
-      "grid size of [1, 1024], the granularity of voxelizer")(
-      "num_thread", po::value<int>()->default_value(4),
-      "number of thread to run voxelizer")(
-      "verbose", po::value<bool>()->default_value(false), "print debug info")(
-      "input", po::value<string>(),
-      "input file to be voxelized, file type will be inferred from file "
-      "suffix")("output", po::value<string>(),
-                "output file to store voxelized result")(
-      "format", po::value<string>()->default_value("binvox"),
-      "output format, can be binvox, rawvox, or cmpvox")(
-      "mode", po::value<string>()->default_value("solid"),
-      "voxelizer mode, surface or solid")("mesh_index",
-                                          po::value<int>()->default_value(0),
-                                          "mesh index to be voxelized");
+  absl::ParseCommandLine(argc, argv);
 
-  po::variables_map vm;
-  po::store(po::parse_command_line(argc, argv, desc), vm);
-  po::notify(vm);
+  int grid_size = absl::GetFlag(FLAGS_grid_size);    
+  int num_thread = absl::GetFlag(FLAGS_num_thread);
+  int mesh_index = absl::GetFlag(FLAGS_mesh_index);
+  std::string input_file = absl::GetFlag(FLAGS_input);
+  std::string output_file = absl::GetFlag(FLAGS_output);
+  std::string format = absl::GetFlag(FLAGS_format);
+  std::string mode = absl::GetFlag(FLAGS_mode);
+  bool verbose = absl::GetFlag(FLAGS_verbose);
 
-  if (vm.count("help")) {
-    cout << desc << endl;
-    return 1;
-  }
-
-  if (!vm.count("input") || !vm.count("output")) {
-    cout << "missing parameters input or output, using --help to check." << endl;
-    return 1;
-  }
-
-  int grid_size = vm["grid_size"].as<int>();
-
-  if (grid_size > 1024) {
-    cout << "current only supports not greater than 1024. contact "
-            "topskychen@gmail.com if you need more grid_size."
-         << endl;
-    return 1;
-  }
-
-  int num_thread = vm["num_thread"].as<int>();
-  int mesh_index = vm["mesh_index"].as<int>();
-  string input_file = vm["input"].as<string>();
-  string output_file = vm["output"].as<string>();
-  string format = vm["format"].as<string>();
-  string mode = vm["mode"].as<string>();
-  bool verbose = vm["verbose"].as<bool>();
+  ABSL_INTERNAL_CHECK(!input_file.empty(), "input should be non-empty");
+  ABSL_INTERNAL_CHECK(!output_file.empty(), "output should be non-empty");
+  ABSL_INTERNAL_CHECK(grid_size <= 1024, "currently this voxelizer only supports not greater than 1024. contact topskychen@gmail.com if you need more grid_size.");
 
   Timer timer;
 
