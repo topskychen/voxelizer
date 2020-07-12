@@ -40,8 +40,11 @@ int main(int argc, char* argv[]) {
   }
   std::vector<float> voxel_size;
   ABSL_INTERNAL_CHECK(ToVector3Float(absl::GetFlag(FLAGS_voxel_size), voxel_size), "failed to parse voxel_size");
-  ABSL_INTERNAL_CHECK(voxel_size.size() == 0 || voxel_size.size() == 3, "voxel_size should be 3 dimensions if specifed");
-
+  ABSL_INTERNAL_CHECK(voxel_size.size() == 0 || voxel_size.size() == 1 || voxel_size.size() == 3, "voxel_size should be 3 dimensions if specifed");
+  if (voxel_size.size() == 1) {
+    voxel_size.push_back(voxel_size[0]);
+    voxel_size.push_back(voxel_size[0]);
+  }
   int num_thread = absl::GetFlag(FLAGS_num_thread);
   int mesh_index = absl::GetFlag(FLAGS_mesh_index);
   std::string input_file = absl::GetFlag(FLAGS_input);
@@ -57,8 +60,13 @@ int main(int argc, char* argv[]) {
   Timer timer;
 
   timer.Restart();
-  Voxelizer voxelizer(grid_size, input_file, mesh_index, verbose);
-  auto status = voxelizer.Init();
+  Voxelizer* voxelizer;
+  if (grid_size.empty()) {
+    voxelizer = new Voxelizer(voxel_size, input_file, mesh_index, verbose);
+  } else {
+    voxelizer = new Voxelizer(grid_size, input_file, mesh_index, verbose);
+  }
+  auto status = voxelizer->Init();
   if (!status.ok()) {
     std::cout << "voxelizer fails initialization: " << status.message();
     return 1;
@@ -68,21 +76,21 @@ int main(int argc, char* argv[]) {
   timer.PrintTimeInMs();
   std::cout << "-------------------------------------------" << std::endl;
   timer.Restart();
-  voxelizer.VoxelizeSurface(num_thread);
+  voxelizer->VoxelizeSurface(num_thread);
   timer.Stop();
   std::cout << "surface voxelization ";
   timer.PrintTimeInMs();
   if (mode == "solid") {
     std::cout << "-------------------------------------------" << std::endl;
     timer.Restart();
-    voxelizer.VoxelizeSolid(num_thread);
+    voxelizer->VoxelizeSolid(num_thread);
     timer.Stop();
     std::cout << "solid voxelization ";
     timer.PrintTimeInMs();
   }
   std::cout << "-------------------------------------------" << std::endl;
   timer.Restart();
-  voxelizer.Write(output_file, format);
+  voxelizer->Write(output_file, format);
   timer.Stop();
   std::cout << "writing file ";
   timer.PrintTimeInMs();

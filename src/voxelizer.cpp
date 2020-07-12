@@ -12,6 +12,11 @@ namespace voxelizer {
 
 absl::Status Voxelizer::Init() {
   if (verbose_) std::cout << "voxelizer init... " << std::endl;
+
+  if (!(grid_size_.empty() ^ voxel_size_.empty())) {
+    return absl::InvalidArgumentError("only one of grid_size and voxel_size can be specifed.");
+  }
+
   is_init_ = false;
   const aiScene* scene;
   try {
@@ -153,11 +158,11 @@ absl::Status Voxelizer::LoadFromMesh(const aiMesh* mesh) {
 
   faces_.reset(new Vec3f[num_faces_], ArrayDeleter<Vec3f>());
   if (mesh->mPrimitiveTypes != kPrimitiveTriangleType) {
-    throw std::runtime_error(absl::StrFormat("mesh face primitive type expects: %d indices but received: %d", kPrimitiveTriangleType, mesh->mPrimitiveTypes));
+    return absl::InvalidArgumentError(absl::StrFormat("mesh face primitive type expects: %d indices but received: %d", kPrimitiveTriangleType, mesh->mPrimitiveTypes));
   }
   for (size_t i = 0; i < num_faces_; ++i) {
     if (mesh->mFaces[i].mNumIndices != kTriangleNumIndices) {
-      throw std::runtime_error(absl::StrFormat("triangle face expects: %d indices but received %d", kTriangleNumIndices, mesh->mFaces[i].mNumIndices));
+      return absl::InvalidArgumentError(absl::StrFormat("triangle face expects: %d indices but received %d", kTriangleNumIndices, mesh->mFaces[i].mNumIndices));
     }
     faces_.get()[i] =
         Vec3f(mesh->mFaces[i].mIndices[0], mesh->mFaces[i].mIndices[1],
@@ -167,7 +172,7 @@ absl::Status Voxelizer::LoadFromMesh(const aiMesh* mesh) {
 
   if (grid_size_.size() > 0) {
     if (grid_size_.size() != 3) {
-      throw std::runtime_error(absl::StrFormat("grid_size dim error: %d", grid_size_.size()));
+      return absl::InvalidArgumentError(absl::StrFormat("grid_size dim error: %d", grid_size_.size()));
     }
     size_x_ = grid_size_[0];
     size_y_ = grid_size_[1];
@@ -175,11 +180,28 @@ absl::Status Voxelizer::LoadFromMesh(const aiMesh* mesh) {
 
     size_ = absl::make_unique<Vec3f>(size_x_, size_y_, size_z_);
 
-    Vec3f half_unit = Vec3f((*bound_)/(2*(*size_)));
+    Vec3f half_unit = (*bound_)/(2*(*size_));
     half_unit_.reset(new Vec3f(half_unit));
+  } else {
+    if (voxel_size_.size() != 3) {
+      return absl::InvalidArgumentError(absl::StrFormat("voxel_size dim error: %d", voxel_size_.size()));
+    }
+    float voxel_x = voxel_size_[0];
+    float voxel_y = voxel_size_[1];
+    float voxel_z = voxel_size_[2];
+    half_unit_.reset(new Vec3f(0.5*voxel_x, 0.5*voxel_y, 0.5*voxel_z));
 
-    std::cout << absl::StrFormat("half unit: %f, %f, %f", half_unit[0], half_unit[1], half_unit[2]) << std::endl;
+    Vec3f size = (*bound_)/(2*(*half_unit_));
+    
+    size_x_ = static_cast<VoxelIndex>(size[0]);
+    size_y_ = static_cast<VoxelIndex>(size[1]);
+    size_z_ = static_cast<VoxelIndex>(size[2]);
+
+    size_ = absl::make_unique<Vec3f>(size_x_, size_y_, size_z_);
   }
+
+   std::cout << absl::StrFormat("half unit: %f, %f, %f", (*half_unit_)[0], (*half_unit_)[1], (*half_unit_)[2]) << std::endl;
+   std::cout << absl::StrFormat("grid size: %d, %d, %d", size_x_, size_y_, size_z_) << std::endl;
 
   // The real voxel bounding box should extract the epsilon box.
   mesh_vox_lb_ = GetVoxel(*mesh_lb_ + kEpsBox);
