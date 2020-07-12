@@ -69,6 +69,9 @@ const Vec3f D_26[] = {
     Vec3f(1, 0, -1),   Vec3f(1, 0, 0),   Vec3f(1, 0, 1),   Vec3f(1, 1, -1),
     Vec3f(1, 1, 0),    Vec3f(1, 1, 1)};
 
+bool ToVector3Int(const std::vector<std::string>& vs, std::vector<int>& vi);
+bool ToVector3Float(const std::vector<std::string>& vs, std::vector<float>& vf);
+
 }  // namespace voxelizer
 
 #endif /* COMMONS_H_ */

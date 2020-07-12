@@ -7,6 +7,8 @@
 
 #include "commons.h"
 
+#include "absl/strings/numbers.h"
+
 namespace voxelizer {
 
 int Random(const int l, const int r) {
@@ -30,6 +32,29 @@ bool Collide(const V3SP& halfUnit, const V3SP& boxAA, const TriSP& tri) {
   Fill(tri->b, tricerts[1]);
   Fill(tri->c, tricerts[2]);
   return TriBoxOverlap(boxCenter, halfSize, tricerts);
+}
+
+bool ToVector3Int(const std::vector<std::string>& vs, std::vector<int>& vi) {
+  vi.clear();
+  for (const auto& v : vs) {
+    int i;
+    if (!absl::SimpleAtoi(v, &i)) {
+      return false;
+    }
+    vi.push_back(i);
+  }
+  return true;
+}
+bool ToVector3Float(const std::vector<std::string>& vs, std::vector<float>& vf) {
+  vf.clear();
+  for (const auto& v : vs) {
+    float f;
+    if (!absl::SimpleAtof(v, &f)) {
+      return false;
+    }
+    vf.push_back(f);
+  }
+  return true;
 }
 
 }  // namespace voxelizer

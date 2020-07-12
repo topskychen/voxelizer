@@ -57,6 +57,9 @@ class Voxelizer {
 
   unsigned int size_, total_size_, size2_;  // size_2 = size*size
 
+  vector<int> grid_size_;
+  vector<float> voxel_size_;
+
   inline void LoadFromMesh(const aiMesh* mesh);
   inline void RunSolidTask(size_t num_thread = 1);
   inline void RunSolidTask2(size_t num_thread = 1);
@@ -105,6 +108,22 @@ class Voxelizer {
   bool Init();
   Voxelizer(int size, const string& p_file, int mesh_index=0, bool verbose=false)
       : size_(size), p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {
+        grid_size_.push_back(size);
+        grid_size_.push_back(size);
+        grid_size_.push_back(size);
+        size2_ = size_ * size_;
+        total_size_ = static_cast<uint32_t>(
+          (static_cast<uint64_t>(size_) * size_ * size_) / kBatchSize);
+      }
+  Voxelizer(const std::vector<int>& grid_size, const string& p_file, int mesh_index=0, bool verbose=false)
+      : grid_size_(grid_size), p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {
+        size_ = grid_size_[0];
+        size2_ = size_ * size_;
+        total_size_ = static_cast<uint32_t>(
+          (static_cast<uint64_t>(size_) * size_ * size_) / kBatchSize);
+      }
+  Voxelizer(const std::vector<float>& voxel_size, const string& p_file, int mesh_index=0, bool verbose=false)
+      : voxel_size_(voxel_size), p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {
         size2_ = size_ * size_;
         total_size_ = static_cast<uint32_t>(
           (static_cast<uint64_t>(size_) * size_ * size_) / kBatchSize);

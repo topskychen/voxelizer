@@ -7,24 +7,23 @@
 
 #ifndef TIMER_H_
 #define TIMER_H_
-#include <sys/time.h>
 
-#include <ctime>
-#include <iostream>
+#include "absl/time/time.h"
 
 namespace voxelizer {
 
 class Timer {
-  struct timeval time_;
-  double start_, end_;
+  absl::Time start_, end_;
 
  public:
   Timer();
   virtual ~Timer();
   void Restart();
   void Stop();
-  double TimeInS();
+  int64_t TimeInS();
+  int64_t TimeInMs();
   void PrintTimeInS();
+  void PrintTimeInMs();
 };
 
 }  // namespace voxelizer
