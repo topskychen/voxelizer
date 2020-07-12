@@ -43,7 +43,7 @@ This project voxelizes the meshes in STL file ***without*** the condition of *wa
 
 
 This project requires libraries (dependencies) as follows:
-
+- *absl* (https://github.com/abseil/abseil-cpp), which is installed as git submodule
 - *boost*
 - *libccd*
 - *libfcl*    
@@ -73,7 +73,7 @@ Next, in linux, use `make` in 'build' directory to compile the code.
 
 ```Allowed options:
   --help                 produce help message
-  --format (output format, can be binvox, rawvox, or cmpvox);
+  --format (output format, can be binvox (https://www.patrickmin.com/binvox/), rawvox, or cmpvox);
       default: "binvox";
   --grid_size (grid size, the granularity of voxelizer. if only one integer is
     set, assuming the X,Y,Z are the same.); default: ;
@@ -88,36 +88,37 @@ Next, in linux, use `make` in 'build' directory to compile the code.
       default: ;
 ```
 
-- Output (voxel file format, it is wrote in `binvox`, `rawvox` and `cmpvox` mode, the 'read_rawvox.cpp' in test folder provides a sample code to load the .rawvox file.) `rawvox` is the following format:
-  - header
-    - size_x, size_y, size_z   
-    three integer denotes the size of grid system, e.g., 256, 256, 256
-    - lowerbound_x lowerbound_y lowerbound_z  
-    three doubles denote the lower bound of the original system, e.g., -0.304904 -0.304904 -0.304904
-    - voxel_size   
-    one double denotes the unit size of a voxel in original system, e.g., 0.00391916
-  - data
-    - x y z  
-    three integers denote the voxel coordinate in grid system, e.g, 30 66 194
-        - ...   
-When we have the voxel (x,y,z), we can get the box in original space as follows: (lowerbound_x + x\*voxel_size, lowerbound_y + y\*voxel_size, lowerbound_z + z\*voxel_size), (lowerbound_x + (x+1)\*voxel_size, lowerbound_y + (y+1)\*voxel_size, lowerbound_z + (z+1)\*voxel_size).
+<!--- Output (voxel file format, it is wrote in `binvox`, `rawvox` and `cmpvox` mode, the 'read_rawvox.cpp' in test folder provides a sample code to load the .rawvox file.) `rawvox` is the following format:-->
+<!--  - header-->
+<!--    - size_x, size_y, size_z   -->
+<!--    three integer denotes the size of grid system, e.g., 256, 256, 256-->
+<!--    - lowerbound_x lowerbound_y lowerbound_z  -->
+<!--    three doubles denote the lower bound of the original system, e.g., -0.304904 -0.304904 -0.304904-->
+<!--    - voxel_size   -->
+<!--    one double denotes the unit size of a voxel in original system, e.g., 0.00391916-->
+<!--  - data-->
+<!--    - x y z  -->
+<!--    three integers denote the voxel coordinate in grid system, e.g, 30 66 194-->
+<!--        - ...   -->
+<!--When we have the voxel (x,y,z), we can get the box in original space as follows: (lowerbound_x + x\*voxel_size, lowerbound_y + y\*voxel_size, lowerbound_z + z\*voxel_size), (lowerbound_x + (x+1)\*voxel_size, lowerbound_y + (y+1)\*voxel_size, lowerbound_z + (z+1)\*voxel_size).-->
 
 When you are in 'build' directory, a running example is: 
 
-``` ./bin/voxelizer --input=../data/ironman.obj --output=../playground/ironman_2.binvox --grid_size=256 --verbose=true```
+``` ./bin/voxelizer --input=../data/ironman.obj --output=../playground/ironman.binvox --grid_size=256 --verbose=true```
+
+To view the `ironman.binbox` file, you may use the viewvox here: https://www.patrickmin.com/viewvox/.
 
 
+<!--For your reference, the pseudo output code for output is:-->
 
-For your reference, the pseudo output code for output is:
-
-```C++
-ofstream* output = new ofstream(p_file.c_str(), ios::out | ios::binary);
-*output << size_x << " " << size_y << " " << size_z << endl;
-*output << lowerbound_x << " " << lowerbound_y << " " << lowerbound_z << endl;
-*output << voxel_size << endl;
-for (x,y,z) in voxels:
-  *output << x << " " << y << " " << z << endl;
-```
+<!--```C++-->
+<!--ofstream* output = new ofstream(p_file.c_str(), ios::out | ios::binary);-->
+<!--*output << size_x << " " << size_y << " " << size_z << endl;-->
+<!--*output << lowerbound_x << " " << lowerbound_y << " " << lowerbound_z << endl;-->
+<!--*output << voxel_size << endl;-->
+<!--for (x,y,z) in voxels:-->
+<!--  *output << x << " " << y << " " << z << endl;-->
+<!--```-->
     
 
 
