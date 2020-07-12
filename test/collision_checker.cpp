@@ -39,7 +39,8 @@ void CollisionChecker::EulerToMatrix(FCL_REAL a, FCL_REAL b, FCL_REAL c,
 bool CollisionChecker::Init() {
 	std::cout << "collision checker init..." << std::endl;
 
-	if (!voxelizer_->Init()) return false;
+  auto status = voxelizer_->Init();
+	if (!status.ok()) return false;
 
   voxelizer_->VoxelizeSurface(num_thread_);
   V3SP lb = voxelizer_->GetMeshLowerBound();

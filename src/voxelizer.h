@@ -17,6 +17,7 @@
 #include <fstream>
 #include <queue>
 
+#include "absl/status/status.h"
 #include "commons.h"
 #include "thread_pool.h"
 #include "timer.h"
@@ -30,6 +31,7 @@ const int kThresholdBfsSurface = 10;
 
 #define GETBIT(x, i) ((x >> (i % kBatchSize)) & 1)
 #define SETBIT(voxels, voxel_index) (voxels.get())[voxel_index / kBatchSize] |= (static_cast<VoxelIndex>(1) << (voxel_index % kBatchSize))
+#define INDEX(x, y, z) x * size_yz_ + y * size_z_ + z
 
 class Voxelizer {
   bool is_init_;
@@ -53,12 +55,13 @@ class Voxelizer {
   AVISP voxels_buffer_;
   AVISP voxels_;
 
-  VoxelIndex size_, size2_, compressed_total_size_;  // size_2 = size*size
+  VoxelIndex size2_, size_x_, size_y_, size_z_, size_xy_, size_xz_, size_yz_, compressed_total_size_;  // size_2 = size*size
+  V3UP size_, scale_;
 
   std::vector<int> grid_size_;
   std::vector<float> voxel_size_;
 
-  inline void LoadFromMesh(const aiMesh* mesh);
+  absl::Status LoadFromMesh(const aiMesh* mesh);
   inline void RunSolidTask(size_t num_thread = 1);
   inline void RunSolidTask2(size_t num_thread = 1);
   inline void RunSurfaceTask(const int tri_id);
@@ -103,26 +106,17 @@ class Voxelizer {
   void WriteBinvox(const std::string& p_file);
   void WriteRawvox(const std::string& p_file);
   void WriteCmpvox(const std::string& p_file);
-  bool Init();
+  absl::Status Init();
   Voxelizer(int size, const std::string& p_file, int mesh_index=0, bool verbose=false)
-      : size_(size), p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {
+      : p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {
         grid_size_.push_back(size);
         grid_size_.push_back(size);
         grid_size_.push_back(size);
-        size2_ = size_ * size_;
-        compressed_total_size_ = size_ * size_ * size_ / kBatchSize;
       }
   Voxelizer(const std::vector<int>& grid_size, const std::string& p_file, int mesh_index=0, bool verbose=false)
-      : grid_size_(grid_size), p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {
-        size_ = grid_size_[0];
-        size2_ = size_ * size_;
-        compressed_total_size_ = size_ * size_ * size_ / kBatchSize;
-      }
+      : grid_size_(grid_size), p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {}
   Voxelizer(const std::vector<float>& voxel_size, const std::string& p_file, int mesh_index=0, bool verbose=false)
-      : voxel_size_(voxel_size), p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {
-        size2_ = size_ * size_;
-        compressed_total_size_ = size_ * size_ * size_ / kBatchSize;
-      }
+      : voxel_size_(voxel_size), p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {}
   virtual ~Voxelizer();
 };
 

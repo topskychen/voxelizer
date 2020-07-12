@@ -17,6 +17,7 @@ target_link_libraries(voxelizer_lib
     absl::base
     absl::strings
     absl::time
+    absl::status
 )
 
 add_executable(voxelizer voxelizer_main.cpp)

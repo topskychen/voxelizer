@@ -35,6 +35,7 @@ const int kBatchSize = 64;
 typedef boost::shared_ptr<TriangleP> TriSP;
 typedef boost::shared_ptr<Box> BoxSP;
 typedef boost::shared_ptr<Vec3f> V3SP;
+typedef std::unique_ptr<Vec3f> V3UP;
 
 typedef std::atomic<VoxelIndex> AVI;
 typedef boost::shared_ptr<std::atomic<VoxelIndex>> AVISP;

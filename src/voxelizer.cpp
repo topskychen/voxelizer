@@ -5,26 +5,16 @@
  *      Author: chenqian
  */
 
-#include <exception>
-#include <sstream>
-
+#include "absl/strings/str_format.h"
 #include "voxelizer.h"
 
 namespace voxelizer {
 
-bool Voxelizer::Init() {
+absl::Status Voxelizer::Init() {
   if (verbose_) std::cout << "voxelizer init... " << std::endl;
   is_init_ = false;
   const aiScene* scene;
   try {
-    /**
-     * Reset voxels.
-     */
-    voxels_.reset(new AVI[compressed_total_size_], ArrayDeleter<AVI>());
-    voxels_buffer_.reset(new AVI[compressed_total_size_], ArrayDeleter<AVI>());
-    memset(voxels_.get(), 0, compressed_total_size_ * sizeof(VoxelIndex));
-    memset(voxels_buffer_.get(), 0, compressed_total_size_ * sizeof(VoxelIndex));
-
     /*
      * Load scene
      * */
@@ -33,17 +23,17 @@ bool Voxelizer::Init() {
                                            aiProcess_OptimizeGraph |
                                            aiProcess_OptimizeMeshes);
     if (!scene) {
-      throw std::runtime_error("Scene fails to be loaded!");
+      return absl::AbortedError("Scene fails to be loaded!");
     }
 
     if (verbose_) std::cout << "mesh number: " << scene->mNumMeshes << std::endl;
 
     if (scene->mNumMeshes == 0) {
-      throw std::runtime_error("0 mesh in the scene!");
+      return absl::AbortedError("0 mesh in the scene!");
     }
 
     if (scene->mNumMeshes <= mesh_index_) {
-      throw std::runtime_error("Required mesh index out of range!");
+      return absl::AbortedError("Required mesh index out of range!");
     }
 
     // TODO(topskychen@gmail.com): consider all the meshes when mesh_index_ is
@@ -57,31 +47,40 @@ bool Voxelizer::Init() {
     num_faces_ = mesh->mNumFaces;
     if (verbose_) std::cout << "faces : " << num_faces_ << std::endl;
     if (verbose_) std::cout << "vertices : " << num_vertices_ << std::endl;
-    LoadFromMesh(mesh);
+    auto status = LoadFromMesh(mesh);
+    if (!status.ok()) return status;
+
+    /**
+     * Reset voxels.
+     */
+    voxels_.reset(new AVI[compressed_total_size_], ArrayDeleter<AVI>());
+    voxels_buffer_.reset(new AVI[compressed_total_size_], ArrayDeleter<AVI>());
+    memset(voxels_.get(), 0, compressed_total_size_ * sizeof(VoxelIndex));
+    memset(voxels_buffer_.get(), 0, compressed_total_size_ * sizeof(VoxelIndex));
 
     if (!scene) delete scene;
     is_init_ = true;
   } catch (std::exception& e) {
     std::cout << e.what() << std::endl;
     if (!scene) delete scene;
-    return false;
+    return absl::AbortedError(e.what());
   }
   if (verbose_) std::cout << "done." << std::endl;
 
-  return true;
+  return absl::OkStatus();
 }
 
 /**
  * Given voxel (int x, int y, int z), return loc (float x, float y, float z)
  */
 V3SP Voxelizer::GetLoc(const V3SP& voxel) {
-  Vec3f tmp = *lb_ + (*bound_) * (*voxel) / (float)size_;
+  Vec3f tmp = *lb_ + (*scale_) * (*voxel);
   V3SP loc(new Vec3f(tmp));
   return loc;
 }
 
 V3SP Voxelizer::GetLoc(const Vec3f& voxel) {
-  Vec3f tmp = *lb_ + (*bound_) * (voxel) / (float)size_;
+  Vec3f tmp = *lb_ + (*scale_) * (voxel);
   V3SP loc(new Vec3f(tmp));
   return loc;
 }
@@ -90,7 +89,7 @@ V3SP Voxelizer::GetLoc(const Vec3f& voxel) {
  * Given loc (float x, float y, float z), return voxel (int x, int y, int z)
  */
 V3SP Voxelizer::GetVoxel(const Vec3f& loc) {
-  Vec3f tmp = (loc - (*lb_)) * (float)size_ / (*bound_);
+  Vec3f tmp = (loc - (*lb_)) * (*size_) / (*bound_);
   V3SP voxel(new Vec3f((int)tmp[0], (int)tmp[1], (int)tmp[2]));
   return voxel;
 }
@@ -99,7 +98,7 @@ V3SP Voxelizer::GetVoxel(const Vec3f& loc) {
  * Given loc (float x, float y, float z), return voxel (int x, int y, int z)
  */
 V3SP Voxelizer::GetVoxel(const V3SP& loc) {
-  Vec3f tmp = ((*loc) - (*lb_)) * (float)size_ / (*bound_);
+  Vec3f tmp = ((*loc) - (*lb_)) * (*size_) / (*bound_);
   V3SP voxel(new Vec3f((int)tmp[0], (int)tmp[1], (int)tmp[2]));
   return voxel;
 }
@@ -118,7 +117,7 @@ inline TriSP Voxelizer::GetTri(const int tri_id) {
 /**
  * Load info from mesh.
  */
-inline void Voxelizer::LoadFromMesh(const aiMesh* mesh) {
+absl::Status Voxelizer::LoadFromMesh(const aiMesh* mesh) {
   vertices_.reset(new Vec3f[num_vertices_], ArrayDeleter<Vec3f>());
   Vec3f tmp;
   for (size_t i = 0; i < num_vertices_; ++i) {
@@ -154,17 +153,11 @@ inline void Voxelizer::LoadFromMesh(const aiMesh* mesh) {
 
   faces_.reset(new Vec3f[num_faces_], ArrayDeleter<Vec3f>());
   if (mesh->mPrimitiveTypes != kPrimitiveTriangleType) {
-    std::ostringstream sstream;
-    sstream << "mesh face primitive type expects " << kPrimitiveTriangleType
-            << " indices but received " << mesh->mPrimitiveTypes;
-    throw std::runtime_error(sstream.str());
+    throw std::runtime_error(absl::StrFormat("mesh face primitive type expects: %d indices but received: %d", kPrimitiveTriangleType, mesh->mPrimitiveTypes));
   }
   for (size_t i = 0; i < num_faces_; ++i) {
     if (mesh->mFaces[i].mNumIndices != kTriangleNumIndices) {
-      std::ostringstream sstream;
-      sstream << "triangle face expects " << kTriangleNumIndices
-              << " indices but received " << mesh->mFaces[i].mNumIndices;
-      throw std::runtime_error(sstream.str());
+      throw std::runtime_error(absl::StrFormat("triangle face expects: %d indices but received %d", kTriangleNumIndices, mesh->mFaces[i].mNumIndices));
     }
     faces_.get()[i] =
         Vec3f(mesh->mFaces[i].mIndices[0], mesh->mFaces[i].mIndices[1],
@@ -172,8 +165,21 @@ inline void Voxelizer::LoadFromMesh(const aiMesh* mesh) {
   }
   RandomPermutation(faces_, num_faces_);
 
-  Vec3f half_unit = (*bound_) / ((float)size_ * 2);
-  half_unit_.reset(new Vec3f(half_unit));
+  if (grid_size_.size() > 0) {
+    if (grid_size_.size() != 3) {
+      throw std::runtime_error(absl::StrFormat("grid_size dim error: %d", grid_size_.size()));
+    }
+    size_x_ = grid_size_[0];
+    size_y_ = grid_size_[1];
+    size_z_ = grid_size_[2];
+
+    size_ = absl::make_unique<Vec3f>(size_x_, size_y_, size_z_);
+
+    Vec3f half_unit = Vec3f((*bound_)/(2*(*size_)));
+    half_unit_.reset(new Vec3f(half_unit));
+
+    std::cout << absl::StrFormat("half unit: %f, %f, %f", half_unit[0], half_unit[1], half_unit[2]) << std::endl;
+  }
 
   // The real voxel bounding box should extract the epsilon box.
   mesh_vox_lb_ = GetVoxel(*mesh_lb_ + kEpsBox);
@@ -182,6 +188,14 @@ inline void Voxelizer::LoadFromMesh(const aiMesh* mesh) {
   if (verbose_) std::cout << "space: " << *lb_ << ", " << *ub_ << std::endl;
   std::cout << "mesh bound: " << *mesh_lb_ << ", " << *mesh_ub_ << std::endl;
   std::cout << "voxel bound: " << *mesh_vox_lb_ << ", " << *mesh_vox_ub_ << std::endl;
+
+  size_xy_ = size_x_*size_y_;
+  size_xz_ = size_x_*size_z_;
+  size_yz_ = size_y_*size_z_;
+  scale_ = absl::make_unique<Vec3f>((*bound_) / (*size_));
+  compressed_total_size_ = size_x_*size_y_*size_z_/kBatchSize;
+
+  return absl::OkStatus();
 }
 
 /**
@@ -222,7 +236,7 @@ inline void Voxelizer::RunSurfaceTask(const int tri_id) {
     for (int x = lx, y, z; x <= ux; ++x) {
       for (y = ly; y <= uy; ++y) {
         for (z = lz; z <= uz; ++z) {
-          voxel_index = x * size2_ + y * size_ + z;
+          voxel_index = INDEX(x, y, z);
           tmp = (voxels_.get())[voxel_index / kBatchSize].load();
           if (GETBIT(tmp, voxel_index)) continue;
           vxlBox->setValue(x, y, z);
@@ -328,16 +342,16 @@ inline bool Voxelizer::InRange(const int& x, const int& y, const int& z,
 }
 
 inline V3SP Voxelizer::ConvIndexToVoxel(const VoxelIndex coord) {
-  V3SP voxel(new Vec3f(coord / size2_, (coord / size_) % size_, coord % size_));
+  V3SP voxel(new Vec3f(coord / size_yz_, (coord / size_z_) % size_y_, coord % size_z_));
   return voxel;
 }
 
 inline VoxelIndex Voxelizer::ConvVoxelToIndex(const V3SP& voxel) {
-  return (*voxel)[0] * size2_ + (*voxel)[1] * size_ + (*voxel)[2];
+  return INDEX((*voxel)[0], (*voxel)[1], (*voxel)[2]);
 }
 
 inline VoxelIndex Voxelizer::ConvVoxelToIndex(const Vec3f& voxel) {
-  return voxel[0] * size2_ + voxel[1] * size_ + voxel[2];
+  return INDEX(voxel[0], voxel[1], voxel[2]);
 }
 
 inline void Voxelizer::RandomPermutation(const V3SP& data, int num) {
@@ -353,7 +367,7 @@ inline void Voxelizer::FillYZ(const int x) {
   VoxelIndex voxel_index, tmp;
   for (int y = ly, z; y <= uy; ++y) {
     for (z = lz; z <= uz; ++z) {
-      voxel_index = x * size2_ + y * size_ + z;
+      voxel_index = INDEX(x, y, x);
       tmp = (voxels_.get())[voxel_index / kBatchSize].load();
       if (GETBIT(tmp, voxel_index)) {
         break;
@@ -363,7 +377,7 @@ inline void Voxelizer::FillYZ(const int x) {
     }
     if (z == uz + 1) continue;
     for (z = uz; z >= lz; --z) {
-      voxel_index = x * size2_ + y * size_ + z;
+      voxel_index = INDEX(x, y, z);
       tmp = (voxels_.get())[voxel_index / kBatchSize].load();
       if (GETBIT(tmp, voxel_index)) {
         break;
@@ -382,7 +396,7 @@ inline void Voxelizer::FillYZ2(const int x) {
   VoxelIndex voxel_index, tmp;
   for (int y = ly, z; y <= uy; ++y) {
     for (z = lz; z <= uz; ++z) {
-      voxel_index = x * size2_ + y * size_ + z;
+      voxel_index = INDEX(x, y, z);
       tmp = (voxels_.get())[voxel_index / kBatchSize].load();
       if (GETBIT(tmp, voxel_index)) {
         break;
@@ -391,7 +405,7 @@ inline void Voxelizer::FillYZ2(const int x) {
           nx = x + DI_4[i][0];
           ny = y + DI_4[i][1];
           if (nx >= lx && nx <= ux && ny >= ly && ny <= uy) {
-            voxel_index = nx * size2_ + ny * size_ + z;
+            voxel_index = INDEX(nx, ny, z);
             tmp = (voxels_.get())[voxel_index / kBatchSize].load() |
                   (voxels_buffer_.get())[voxel_index / kBatchSize].load();
             if (!GETBIT(tmp, voxel_index)) BfsSolid(voxel_index);
@@ -401,7 +415,7 @@ inline void Voxelizer::FillYZ2(const int x) {
     }
     if (z == uz + 1) continue;
     for (z = uz; z >= lz; --z) {
-      voxel_index = x * size2_ + y * size_ + z;
+      voxel_index = INDEX(x, y, z);
       tmp = (voxels_.get())[voxel_index / kBatchSize].load();
       if (GETBIT(tmp, voxel_index)) {
         break;
@@ -410,7 +424,7 @@ inline void Voxelizer::FillYZ2(const int x) {
           nx = x + DI_4[i][0];
           ny = y + DI_4[i][1];
           if (nx >= lx && nx <= ux && ny >= ly && ny <= uy) {
-            voxel_index = nx * size2_ + ny * size_ + z;
+            voxel_index = INDEX(nx, ny, z);
             tmp = (voxels_.get())[voxel_index / kBatchSize].load() |
                   (voxels_buffer_.get())[voxel_index / kBatchSize].load();
             if (!GETBIT(tmp, voxel_index)) BfsSolid(voxel_index);
@@ -427,7 +441,7 @@ inline void Voxelizer::FillXZ(const int y) {
   VoxelIndex voxel_index, tmp;
   for (int z = lz, x; z <= uz; ++z) {
     for (x = lx; x <= ux; ++x) {
-      voxel_index = x * size2_ + y * size_ + z;
+      voxel_index = INDEX(x, y, z);
       tmp = (voxels_.get())[voxel_index / kBatchSize].load();
       if (GETBIT(tmp, voxel_index)) {
         break;
@@ -437,7 +451,7 @@ inline void Voxelizer::FillXZ(const int y) {
     }
     if (x == ux + 1) continue;
     for (x = ux; x >= lx; --x) {
-      voxel_index = x * size2_ + y * size_ + z;
+      voxel_index = INDEX(x, y, z);
       tmp = (voxels_.get())[voxel_index / kBatchSize].load();
       if (GETBIT(tmp, voxel_index)) {
         break;
@@ -456,7 +470,7 @@ inline void Voxelizer::FillXZ2(const int y) {
   VoxelIndex voxel_index, tmp;
   for (int z = lz, x; z <= uz; ++z) {
     for (x = lx; x <= ux; ++x) {
-      voxel_index = x * size2_ + y * size_ + z;
+      voxel_index = INDEX(x, y, z);
       tmp = (voxels_.get())[voxel_index / kBatchSize].load();
       if (GETBIT(tmp, voxel_index)) {
         break;
@@ -465,7 +479,7 @@ inline void Voxelizer::FillXZ2(const int y) {
           ny = y + DI_4[i][0];
           nz = z + DI_4[i][1];
           if (nz >= lz && nz <= uz && ny >= ly && ny <= uy) {
-            voxel_index = x * size2_ + ny * size_ + nz;
+            voxel_index = INDEX(x, ny, nz);
             tmp = (voxels_.get())[voxel_index / kBatchSize].load() |
                   (voxels_buffer_.get())[voxel_index / kBatchSize].load();
             if (!GETBIT(tmp, voxel_index)) BfsSolid(voxel_index);
@@ -475,7 +489,7 @@ inline void Voxelizer::FillXZ2(const int y) {
     }
     if (x == ux + 1) continue;
     for (x = ux; x >= lx; --x) {
-      voxel_index = x * size2_ + y * size_ + z;
+      voxel_index = INDEX(x, y, z);
       tmp = (voxels_.get())[voxel_index / kBatchSize].load();
       if (GETBIT(tmp, voxel_index)) {
         break;
@@ -484,7 +498,7 @@ inline void Voxelizer::FillXZ2(const int y) {
           ny = y + DI_4[i][0];
           nz = z + DI_4[i][1];
           if (nz >= lz && nz <= uz && ny >= ly && ny <= uy) {
-            voxel_index = x * size2_ + ny * size_ + nz;
+            voxel_index = INDEX(x, ny, nz);
             tmp = (voxels_.get())[voxel_index / kBatchSize].load() |
                   (voxels_buffer_.get())[voxel_index / kBatchSize].load();
             if (!GETBIT(tmp, voxel_index)) BfsSolid(voxel_index);
@@ -501,7 +515,7 @@ inline void Voxelizer::FillXY(const int z) {
   VoxelIndex voxel_index, tmp;
   for (int x = lx, y; x <= ux; ++x) {
     for (y = ly; y <= uy; ++y) {
-      voxel_index = x * size2_ + y * size_ + z;
+      voxel_index = INDEX(x, y, z);
       tmp = (voxels_.get())[voxel_index / kBatchSize].load();
       if (GETBIT(tmp, voxel_index)) {
         break;
@@ -511,7 +525,7 @@ inline void Voxelizer::FillXY(const int z) {
     }
     if (y == uy + 1) continue;
     for (y = uy; y >= ly; --y) {
-      voxel_index = x * size2_ + y * size_ + z;
+      voxel_index = INDEX(x, y, z);
       tmp = (voxels_.get())[voxel_index / kBatchSize].load();
       if (GETBIT(tmp, voxel_index)) {
         break;
@@ -530,7 +544,7 @@ inline void Voxelizer::FillXY2(const int z) {
   VoxelIndex voxel_index, tmp;
   for (int x = lx, y; x <= ux; ++x) {
     for (y = ly; y <= uy; ++y) {
-      voxel_index = x * size2_ + y * size_ + z;
+      voxel_index = INDEX(x, y, z);
       tmp = (voxels_.get())[voxel_index / kBatchSize].load();
       if (GETBIT(tmp, voxel_index)) {
         break;
@@ -539,7 +553,7 @@ inline void Voxelizer::FillXY2(const int z) {
           nx = x + DI_4[i][0];
           nz = z + DI_4[i][1];
           if (nz >= lz && nz <= uz && nx >= lx && nx <= ux) {
-            voxel_index = nx * size2_ + y * size_ + nz;
+            voxel_index = INDEX(nx, y, nz);
             tmp = (voxels_.get())[voxel_index / kBatchSize].load() |
                   (voxels_buffer_.get())[voxel_index / kBatchSize].load();
             if (!GETBIT(tmp, voxel_index)) BfsSolid(voxel_index);
@@ -549,7 +563,7 @@ inline void Voxelizer::FillXY2(const int z) {
     }
     if (y == uy + 1) continue;
     for (y = uy; y >= ly; --y) {
-      voxel_index = x * size2_ + y * size_ + z;
+      voxel_index = INDEX(x, y, z);
       tmp = (voxels_.get())[voxel_index / kBatchSize].load();
       if (GETBIT(tmp, voxel_index)) {
         break;
@@ -558,7 +572,7 @@ inline void Voxelizer::FillXY2(const int z) {
           nx = x + DI_4[i][0];
           nz = z + DI_4[i][1];
           if (nz >= lz && nz <= uz && nx >= lx && nx <= ux) {
-            voxel_index = nx * size2_ + y * size_ + nz;
+            voxel_index = INDEX(nx, y, nz);
             tmp = (voxels_.get())[voxel_index / kBatchSize].load() |
                   (voxels_buffer_.get())[voxel_index / kBatchSize].load();
             if (!GETBIT(tmp, voxel_index)) BfsSolid(voxel_index);
@@ -630,13 +644,13 @@ void Voxelizer::WriteCmpvox(const std::string& p_file) {
   //
   // write header
   //
-  *output << size_;
+  *output << size_x_ << size_y_ << size_z_;
   *output << (double)(*lb_)[0] << (double)(*lb_)[1] << (double)(*lb_)[2];
 
   *output << (double)(*half_unit_)[0] * 2;
   *output << lx << ly << lz << uz << uy << uz;
 
-  if (verbose_) std::cout << "grid size : " << size_ << std::endl;
+  if (verbose_) std::cout << "grid size : " << size_x_ << ", " << size_y_ << ", " << size_z_ << std::endl;
   if (verbose_)
     std::cout << "lower bound : " << (*lb_)[0] << " " << (*lb_)[1] << " "
          << (*lb_)[2] << std::endl;
@@ -655,7 +669,7 @@ void Voxelizer::WriteCmpvox(const std::string& p_file) {
   int x = lx, y = ly, z = lz;
   Byte value, count;
   while (x <= ux) {
-    index = x * size2_ + y * size_ + z;
+    index = INDEX(x, y, z);
     value = GETBIT(voxels_.get()[index / kBatchSize], index);
     count = 0;
     while ((x <= ux) && (count < 255) &&
@@ -669,7 +683,7 @@ void Voxelizer::WriteCmpvox(const std::string& p_file) {
           x++;
         }
       }
-      index = x * size2_ + y * size_ + z;
+      index = INDEX(x, y, z);
       count++;
     }
     if (value) total_ones += count;
@@ -687,7 +701,7 @@ void Voxelizer::WriteBinvox(const std::string& p_file) {
   if (verbose_) std::cout << "writing voxels to file..." << std::endl;
 
   V3SP vxlBox(new Vec3f(0, 0, 0));
-  const int lx = 0, ux = size_ - 1, ly = 0, uy = size_ - 1, lz = 0, uz = size_ - 1;
+  const int lx = 0, ux = size_x_ - 1, ly = 0, uy = size_y_ - 1, lz = 0, uz = size_z_ - 1;
   const int bx = ux - lx + 1, by = uy - ly + 1, bz = uz - lz + 1;
   const int mesh_lx = (*mesh_vox_lb_)[0], mesh_ly = (*mesh_vox_lb_)[1],
       mesh_lz = (*mesh_vox_lb_)[2];
@@ -720,7 +734,7 @@ void Voxelizer::WriteBinvox(const std::string& p_file) {
    */
   int x = lx, y = ly, z = lz;
   while (x <= ux) {
-    index = x * size2_ + y * size_ + z;
+    index = INDEX(x, y, z);
     value =
         InRange(x, y, z, mesh_lx, mesh_ly, mesh_lz, mesh_ux, mesh_uy, mesh_uz)
             ? GETBIT(voxels_.get()[index / kBatchSize], index)
@@ -740,7 +754,7 @@ void Voxelizer::WriteBinvox(const std::string& p_file) {
           x++;
         }
       }
-      index = x * size2_ + y * size_ + z;
+      index = INDEX(x, y, z);
       count++;
     }
     if (value) total_ones += count;
@@ -759,7 +773,7 @@ void Voxelizer::WriteBinvox(const std::string& p_file) {
  */
 void Voxelizer::WriteRawvox(const std::string& p_file) {
   if (verbose_) std::cout << "writing voxels to file..." << std::endl;
-  int lx = 0, ux = size_ - 1, ly = 0, uy = size_ - 1, lz = 0, uz = size_ - 1;
+  int lx = 0, ux = size_x_ - 1, ly = 0, uy = size_y_ - 1, lz = 0, uz = size_z_ - 1;
   int mesh_lx = (*mesh_vox_lb_)[0], mesh_ly = (*mesh_vox_lb_)[1],
       mesh_lz = (*mesh_vox_lb_)[2];
   int mesh_ux = (*mesh_vox_ub_)[0], mesh_uy = (*mesh_vox_ub_)[1],
@@ -769,13 +783,13 @@ void Voxelizer::WriteRawvox(const std::string& p_file) {
   //
   // write header
   //
-  *output << size_ << std::endl;
+  *output << size_x_ << " " << size_y_ << " " << size_z_ << std::endl;
   *output << (double)(*lb_)[0] << " " << (double)(*lb_)[1] << " "
           << (double)(*lb_)[2] << std::endl;
   *output << (double)(*half_unit_)[0] * 2 << std::endl;
 
   if (verbose_)
-    std::cout << "dim : " << size_ << " x " << size_ << " x " << size_ << std::endl;
+    std::cout << "dim : " << size_x_ << " x " << size_y_ << " x " << size_z_ << std::endl;
   if (verbose_) std::cout << "lower bound : " << (*lb_) << std::endl;
   if (verbose_) std::cout << "voxel size : " << (*half_unit_)[0] * 2 << std::endl;
 
@@ -789,7 +803,7 @@ void Voxelizer::WriteRawvox(const std::string& p_file) {
         if (!InRange(x, y, z, mesh_lx, mesh_ly, mesh_lz, mesh_ux, mesh_uy,
                      mesh_uz))
           continue;
-        voxel_index = x * size2_ + y * size_ + z;
+        voxel_index = INDEX(x, y, z);
         tmp = (voxels_.get())[voxel_index / kBatchSize].load();
         if (GETBIT(tmp, voxel_index)) {
           *output << x << ' ' << y << ' ' << z << '\n';

@@ -58,8 +58,9 @@ int main(int argc, char* argv[]) {
 
   timer.Restart();
   Voxelizer voxelizer(grid_size, input_file, mesh_index, verbose);
-  if (!voxelizer.Init()) {
-    std::cout << "voxelizer fails initialization ";
+  auto status = voxelizer.Init();
+  if (!status.ok()) {
+    std::cout << "voxelizer fails initialization: " << status.message();
     return 1;
   }
   timer.Stop();
