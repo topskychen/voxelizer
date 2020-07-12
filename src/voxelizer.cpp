@@ -30,13 +30,10 @@ absl::Status Voxelizer::Init() {
     if (!scene) {
       return absl::AbortedError("Scene fails to be loaded!");
     }
-
     if (verbose_) std::cout << "mesh number: " << scene->mNumMeshes << std::endl;
-
     if (scene->mNumMeshes == 0) {
       return absl::AbortedError("0 mesh in the scene!");
     }
-
     if (scene->mNumMeshes <= mesh_index_) {
       return absl::AbortedError("Required mesh index out of range!");
     }
@@ -52,22 +49,15 @@ absl::Status Voxelizer::Init() {
     num_faces_ = mesh->mNumFaces;
     if (verbose_) std::cout << "faces : " << num_faces_ << std::endl;
     if (verbose_) std::cout << "vertices : " << num_vertices_ << std::endl;
+    
+    /**
+    * Load meshes.
+    */
     auto status = LoadFromMesh(mesh);
     if (!status.ok()) return status;
 
-    /**
-     * Reset voxels.
-     */
-    voxels_.reset(new AVI[compressed_total_size_], ArrayDeleter<AVI>());
-    voxels_buffer_.reset(new AVI[compressed_total_size_], ArrayDeleter<AVI>());
-    memset(voxels_.get(), 0, compressed_total_size_ * sizeof(VoxelIndex));
-    memset(voxels_buffer_.get(), 0, compressed_total_size_ * sizeof(VoxelIndex));
-
-    if (!scene) delete scene;
     is_init_ = true;
   } catch (std::exception& e) {
-    std::cout << e.what() << std::endl;
-    if (!scene) delete scene;
     return absl::AbortedError(e.what());
   }
   if (verbose_) std::cout << "done." << std::endl;
@@ -78,51 +68,33 @@ absl::Status Voxelizer::Init() {
 /**
  * Given voxel (int x, int y, int z), return loc (float x, float y, float z)
  */
-V3SP Voxelizer::GetLoc(const V3SP& voxel) {
-  Vec3f tmp = *lb_ + (*scale_) * (*voxel);
-  V3SP loc(new Vec3f(tmp));
-  return loc;
-}
-
-V3SP Voxelizer::GetLoc(const Vec3f& voxel) {
-  Vec3f tmp = *lb_ + (*scale_) * (voxel);
-  V3SP loc(new Vec3f(tmp));
-  return loc;
+Vec3f Voxelizer::GetLoc(const Vec3f& voxel) {
+  return *lb_ + (*scale_) * (voxel);
 }
 
 /**
  * Given loc (float x, float y, float z), return voxel (int x, int y, int z)
  */
-V3SP Voxelizer::GetVoxel(const Vec3f& loc) {
+Vec3f Voxelizer::GetVoxel(const Vec3f& loc) {
   Vec3f tmp = (loc - (*lb_)) * (*size_) / (*bound_);
-  V3SP voxel(new Vec3f((int)tmp[0], (int)tmp[1], (int)tmp[2]));
-  return voxel;
-}
-
-/**
- * Given loc (float x, float y, float z), return voxel (int x, int y, int z)
- */
-V3SP Voxelizer::GetVoxel(const V3SP& loc) {
-  Vec3f tmp = ((*loc) - (*lb_)) * (*size_) / (*bound_);
-  V3SP voxel(new Vec3f((int)tmp[0], (int)tmp[1], (int)tmp[2]));
-  return voxel;
+  return Vec3f(static_cast<int>(tmp[0]), static_cast<int>(tmp[1]), static_cast<int>(tmp[2]));
 }
 
 /**
  *Get the collision object form triangle(face) id;
  */
-inline TriSP Voxelizer::GetTri(const int tri_id) {
+TriangleP Voxelizer::GetTri(const int tri_id) {
   const Vec3f& v_ids = faces_.get()[tri_id];
-  TriSP tri(new TriangleP(vertices_.get()[(int)v_ids[0]],
+  return TriangleP(vertices_.get()[(int)v_ids[0]],
                           vertices_.get()[(int)v_ids[1]],
-                          vertices_.get()[(int)v_ids[2]]));
-  return tri;
+                          vertices_.get()[(int)v_ids[2]]);
 }
 
 /**
  * Load info from mesh.
  */
 absl::Status Voxelizer::LoadFromMesh(const aiMesh* mesh) {
+  // load vertices and update mesh bounds
   vertices_.reset(new Vec3f[num_vertices_], ArrayDeleter<Vec3f>());
   Vec3f tmp;
   for (size_t i = 0; i < num_vertices_; ++i) {
@@ -144,7 +116,7 @@ absl::Status Voxelizer::LoadFromMesh(const aiMesh* mesh) {
   mesh_ub_.reset(new Vec3f((*mesh_ub_) + kEpsBox));
 
   /**
-   *
+   * Calculate a bounding box according to the mesh bounds.
    */
   min_lb_ = (*mesh_lb_)[0];
   min_lb_ = std::min(min_lb_, (float)(*mesh_lb_)[1]);
@@ -152,10 +124,13 @@ absl::Status Voxelizer::LoadFromMesh(const aiMesh* mesh) {
   max_ub_ = (*mesh_ub_)[0];
   max_ub_ = std::max(max_ub_, (float)(*mesh_ub_)[1]);
   max_ub_ = std::max(max_ub_, (float)(*mesh_ub_)[2]);
-  lb_.reset(new Vec3f(min_lb_, min_lb_, min_lb_));
-  ub_.reset(new Vec3f(max_ub_, max_ub_, max_ub_));
-  bound_.reset(new Vec3f((*ub_ - *lb_)));
+  lb_ = absl::make_unique<Vec3f>(min_lb_, min_lb_, min_lb_);
+  ub_ = absl::make_unique<Vec3f>(max_ub_, max_ub_, max_ub_);
+  bound_ = absl::make_unique<Vec3f>(*ub_ - *lb_);
 
+  /**
+  * Store face info.
+  */
   faces_.reset(new Vec3f[num_faces_], ArrayDeleter<Vec3f>());
   if (mesh->mPrimitiveTypes != kPrimitiveTriangleType) {
     return absl::InvalidArgumentError(absl::StrFormat("mesh face primitive type expects: %d indices but received: %d", kPrimitiveTriangleType, mesh->mPrimitiveTypes));
@@ -170,28 +145,35 @@ absl::Status Voxelizer::LoadFromMesh(const aiMesh* mesh) {
   }
   RandomPermutation(faces_, num_faces_);
 
+  /**
+  * Calculate the grid size and voxel size. 
+  */
   if (grid_size_.size() > 0) {
     if (grid_size_.size() != 3) {
       return absl::InvalidArgumentError(absl::StrFormat("grid_size dim error: %d", grid_size_.size()));
     }
+
     size_x_ = grid_size_[0];
     size_y_ = grid_size_[1];
     size_z_ = grid_size_[2];
 
     size_ = absl::make_unique<Vec3f>(size_x_, size_y_, size_z_);
 
-    Vec3f half_unit = (*bound_)/(2*(*size_));
-    half_unit_.reset(new Vec3f(half_unit));
+    unit_ = absl::make_unique<Vec3f>((*bound_)/(*size_));
+    half_unit_ = absl::make_unique<Vec3f>((*unit_)/2);
   } else {
     if (voxel_size_.size() != 3) {
       return absl::InvalidArgumentError(absl::StrFormat("voxel_size dim error: %d", voxel_size_.size()));
     }
+
     float voxel_x = voxel_size_[0];
     float voxel_y = voxel_size_[1];
     float voxel_z = voxel_size_[2];
-    half_unit_.reset(new Vec3f(0.5*voxel_x, 0.5*voxel_y, 0.5*voxel_z));
 
-    Vec3f size = (*bound_)/(2*(*half_unit_));
+    unit_ = absl::make_unique<Vec3f>(voxel_x, voxel_y, voxel_z);
+    half_unit_ = absl::make_unique<Vec3f>((*unit_)/2);
+
+    Vec3f size = (*bound_)/(*unit_);
     
     size_x_ = static_cast<VoxelIndex>(size[0]);
     size_y_ = static_cast<VoxelIndex>(size[1]);
@@ -200,22 +182,34 @@ absl::Status Voxelizer::LoadFromMesh(const aiMesh* mesh) {
     size_ = absl::make_unique<Vec3f>(size_x_, size_y_, size_z_);
   }
 
-   std::cout << absl::StrFormat("half unit: %f, %f, %f", (*half_unit_)[0], (*half_unit_)[1], (*half_unit_)[2]) << std::endl;
-   std::cout << absl::StrFormat("grid size: %d, %d, %d", size_x_, size_y_, size_z_) << std::endl;
+  if (verbose_) {
+    std::cout << absl::StrFormat("voxel size: %f, %f, %f", (*unit_)[0], (*unit_)[1], (*unit_)[2]) << std::endl;
+    std::cout << absl::StrFormat("grid size: %d, %d, %d", size_x_, size_y_, size_z_) << std::endl; 
+  }
 
   // The real voxel bounding box should extract the epsilon box.
-  mesh_vox_lb_ = GetVoxel(*mesh_lb_ + kEpsBox);
-  mesh_vox_ub_ = GetVoxel(*mesh_ub_ - kEpsBox);
+  mesh_vox_lb_ = absl::make_unique<Vec3f>(GetVoxel(*mesh_lb_ + kEpsBox));
+  mesh_vox_ub_ = absl::make_unique<Vec3f>(GetVoxel(*mesh_ub_ - kEpsBox));
 
-  if (verbose_) std::cout << "space: " << *lb_ << ", " << *ub_ << std::endl;
-  std::cout << "mesh bound: " << *mesh_lb_ << ", " << *mesh_ub_ << std::endl;
-  std::cout << "voxel bound: " << *mesh_vox_lb_ << ", " << *mesh_vox_ub_ << std::endl;
+  if (verbose_) {
+    std::cout << "space: " << *lb_ << ", " << *ub_ << std::endl;
+    std::cout << "mesh bound: " << *mesh_lb_ << ", " << *mesh_ub_ << std::endl;
+    std::cout << "voxel bound: " << *mesh_vox_lb_ << ", " << *mesh_vox_ub_ << std::endl;
+  }
 
   size_xy_ = size_x_*size_y_;
   size_xz_ = size_x_*size_z_;
   size_yz_ = size_y_*size_z_;
   scale_ = absl::make_unique<Vec3f>((*bound_) / (*size_));
   compressed_total_size_ = size_x_*size_y_*size_z_/kBatchSize;
+
+  /**
+  * Reset voxels.
+  */
+  voxels_.reset(new AVI[compressed_total_size_], ArrayDeleter<AVI>());
+  voxels_buffer_.reset(new AVI[compressed_total_size_], ArrayDeleter<AVI>());
+  memset(voxels_.get(), 0, compressed_total_size_ * sizeof(VoxelIndex));
+  memset(voxels_buffer_.get(), 0, compressed_total_size_ * sizeof(VoxelIndex));
 
   return absl::OkStatus();
 }
@@ -240,13 +234,13 @@ void Voxelizer::VoxelizeSurface(const int num_thread) {
  * Details of surface task.
  */
 inline void Voxelizer::RunSurfaceTask(const int tri_id) {
-  TriSP tri = GetTri(tri_id);
-  tri->computeLocalAABB();
-  const V3SP lb = GetVoxel(tri->aabb_local.min_);
-  const V3SP ub = GetVoxel(tri->aabb_local.max_);
+  TriangleP tri = GetTri(tri_id);
+  tri.computeLocalAABB();
+  const Vec3f lb = GetVoxel(tri.aabb_local.min_);
+  const Vec3f ub = GetVoxel(tri.aabb_local.max_);
   
-  const int lx = (*lb)[0], ux = (*ub)[0], ly = (*lb)[1], uy = (*ub)[1], lz = (*lb)[2],
-      uz = (*ub)[2];
+  const int lx = lb[0], ux = ub[0], ly = lb[1], uy = ub[1], lz = lb[2],
+      uz = ub[2];
   /**
    * when the estimated voxels are too large, optimize with bfs.
    */
@@ -254,15 +248,15 @@ inline void Voxelizer::RunSurfaceTask(const int tri_id) {
   int esti = std::min(ux - lx, std::min(uy - ly, uz - lz));
   if (esti < kThresholdBfsSurface) {
     VoxelIndex voxel_index, tmp;
-    V3SP vxlBox(new Vec3f(0, 0, 0));
+    Vec3f vxlBox(0, 0, 0);
     for (int x = lx, y, z; x <= ux; ++x) {
       for (y = ly; y <= uy; ++y) {
         for (z = lz; z <= uz; ++z) {
           voxel_index = INDEX(x, y, z);
           tmp = (voxels_.get())[voxel_index / kBatchSize].load();
           if (GETBIT(tmp, voxel_index)) continue;
-          vxlBox->setValue(x, y, z);
-          if (Collide(half_unit_, GetLoc(vxlBox), tri)) {
+          vxlBox.setValue(x, y, z);
+          if (Collide(*half_unit_, GetLoc(vxlBox), tri)) {
             SETBIT(voxels_, voxel_index);
             count++;
           }
@@ -274,29 +268,29 @@ inline void Voxelizer::RunSurfaceTask(const int tri_id) {
   }
 }
 
-inline VoxelIndex Voxelizer::BfsSurface(const TriSP& tri, const V3SP& lb,
-                                 const V3SP& ub) {
+inline VoxelIndex Voxelizer::BfsSurface(const TriangleP& tri, const Vec3f& lb,
+                                 const Vec3f& ub) {
   std::queue<VoxelIndex> q;
   HashSet set;
-  VoxelIndex start = ConvVoxelToIndex(GetVoxel(tri->a)), top_voxel_index, tmp,
+  VoxelIndex start = ConvVoxelToIndex(GetVoxel(tri.a)), top_voxel_index, tmp,
                new_voxel_index;
   q.push(start);
   set.insert(start);
-  V3SP top_voxel;
+  Vec3f top_voxel;
   VoxelIndex count = 0;
   while (!q.empty()) {
     count++;
     top_voxel_index = q.front();
     q.pop();
     tmp = (voxels_.get())[top_voxel_index / kBatchSize].load();
-    top_voxel = ConvIndexToVoxel(top_voxel_index);
+    ConvIndexToVoxel(top_voxel_index, top_voxel);
     if (GETBIT(tmp, top_voxel_index) ||
-        Collide(half_unit_, GetLoc(top_voxel), tri)) {
+        Collide(*half_unit_, GetLoc(top_voxel), tri)) {
       if (!GETBIT(tmp, top_voxel_index)) {
         SETBIT(voxels_, top_voxel_index);
       }
       for (int i = 0; i < 6; ++i) {
-        Vec3f newVoxel = *top_voxel + D_6[i];
+        Vec3f newVoxel = top_voxel + D_6[i];
         if (!InRange(newVoxel, lb, ub)) continue;
         new_voxel_index = ConvVoxelToIndex(newVoxel);
         if (set.find(new_voxel_index) == set.end()) {
@@ -330,18 +324,18 @@ inline void Voxelizer::BfsSolid(const VoxelIndex start_index) {
   if (GETBIT(tmp, voxel_index)) return;
   std::queue<VoxelIndex> q;
   q.push(voxel_index);
-  V3SP top_voxel(new Vec3f(0, 0, 0));
+  Vec3f top_voxel;
   while (!q.empty()) {
     voxel_index = q.front();
     tmp = (voxels_.get())[voxel_index / kBatchSize].load() |
           (voxels_buffer_.get())[voxel_index / kBatchSize].load();
     q.pop();
-    top_voxel = ConvIndexToVoxel(voxel_index);
+    ConvIndexToVoxel(voxel_index, top_voxel);
     if (!GETBIT(tmp, voxel_index)) {
       SETBIT(voxels_buffer_, voxel_index);
       for (int i = 0; i < 6; i++) {
-        Vec3f newVoxel = *top_voxel + D_6[i];
-        if (!InRange(newVoxel, mesh_vox_lb_, mesh_vox_ub_)) continue;
+        Vec3f newVoxel = top_voxel + D_6[i];
+        if (!InRange(newVoxel, *mesh_vox_lb_, *mesh_vox_ub_)) continue;
         voxel_index = ConvVoxelToIndex(newVoxel);
         tmp = (voxels_.get())[voxel_index / kBatchSize].load() |
               (voxels_buffer_.get())[voxel_index / kBatchSize].load();
@@ -351,25 +345,24 @@ inline void Voxelizer::BfsSolid(const VoxelIndex start_index) {
   }
 }
 
-inline bool Voxelizer::InRange(const Vec3f& vc, const V3SP& lb,
-                               const V3SP& ub) {
-  return vc[0] >= (*lb)[0] && vc[0] <= (*ub)[0] && vc[1] >= (*lb)[1] &&
-         vc[1] <= (*ub)[1] && vc[2] >= (*lb)[2] && vc[2] <= (*ub)[2];
+inline bool Voxelizer::InRange(const Vec3f& vc, const Vec3f& lb,
+                               const Vec3f& ub) {
+  return vc[0] >= lb[0] && vc[0] <= ub[0] && vc[1] >= lb[1] &&
+         vc[1] <= ub[1] && vc[2] >= lb[2] && vc[2] <= ub[2];
 }
 
-inline bool Voxelizer::InRange(const int& x, const int& y, const int& z,
-                               const int& lx, const int& ly, const int& lz,
-                               const int& ux, const int& uy, const int& uz) {
+inline bool Voxelizer::InRange(const int x, const int y, const int z,
+                               const int lx, const int ly, const int lz,
+                               const int ux, const int uy, const int uz) {
   return x >= lx && x <= ux && y >= ly && y <= uy && z >= lz && z <= uz;
 }
 
-inline V3SP Voxelizer::ConvIndexToVoxel(const VoxelIndex coord) {
-  V3SP voxel(new Vec3f(coord / size_yz_, (coord / size_z_) % size_y_, coord % size_z_));
-  return voxel;
+inline Vec3f Voxelizer::ConvIndexToVoxel(const VoxelIndex coord) {
+  return Vec3f(coord / size_yz_, (coord / size_z_) % size_y_, coord % size_z_);
 }
 
-inline VoxelIndex Voxelizer::ConvVoxelToIndex(const V3SP& voxel) {
-  return INDEX((*voxel)[0], (*voxel)[1], (*voxel)[2]);
+void Voxelizer::ConvIndexToVoxel(const VoxelIndex coord, Vec3f& voxel) {
+  voxel.setValue(coord / size_yz_, (coord / size_z_) % size_y_, coord % size_z_);
 }
 
 inline VoxelIndex Voxelizer::ConvVoxelToIndex(const Vec3f& voxel) {
@@ -669,14 +662,14 @@ void Voxelizer::WriteCmpvox(const std::string& p_file) {
   *output << size_x_ << size_y_ << size_z_;
   *output << (double)(*lb_)[0] << (double)(*lb_)[1] << (double)(*lb_)[2];
 
-  *output << (double)(*half_unit_)[0] * 2;
+  *output << (double)(*unit_)[0] << (double)(*unit_)[1] << (double)(*unit_)[2];
   *output << lx << ly << lz << uz << uy << uz;
 
   if (verbose_) std::cout << "grid size : " << size_x_ << ", " << size_y_ << ", " << size_z_ << std::endl;
   if (verbose_)
     std::cout << "lower bound : " << (*lb_)[0] << " " << (*lb_)[1] << " "
          << (*lb_)[2] << std::endl;
-  if (verbose_) std::cout << "voxel size : " << (*half_unit_)[0] * 2 << std::endl;
+  if (verbose_) std::cout << "voxel size : " << (*unit_)[0] * 2 << std::endl;
   if (verbose_)
     std::cout << "voxel bound : (" << lx << " " << ly << " " << lz << "), "
          << " (" << ux << " " << uy << " " << uz << ")" << std::endl;
@@ -808,12 +801,12 @@ void Voxelizer::WriteRawvox(const std::string& p_file) {
   *output << size_x_ << " " << size_y_ << " " << size_z_ << std::endl;
   *output << (double)(*lb_)[0] << " " << (double)(*lb_)[1] << " "
           << (double)(*lb_)[2] << std::endl;
-  *output << (double)(*half_unit_)[0] * 2 << std::endl;
+  *output << (double)(*unit_)[0] << (double)(*unit_)[1] << (double)(*unit_)[2] << std::endl;
 
   if (verbose_)
     std::cout << "dim : " << size_x_ << " x " << size_y_ << " x " << size_z_ << std::endl;
   if (verbose_) std::cout << "lower bound : " << (*lb_) << std::endl;
-  if (verbose_) std::cout << "voxel size : " << (*half_unit_)[0] * 2 << std::endl;
+  if (verbose_) std::cout << "voxel size : " << (*unit_)[0] << " " << (*unit_)[1] << " " << (*unit_)[2] << std::endl;
 
   //
   // write data
@@ -851,17 +844,19 @@ int Voxelizer::GetVerticesSize() { return num_vertices_; }
 
 int Voxelizer::GetFacesSize() { return num_faces_; }
 
-V3SP Voxelizer::GetLowerBound() { return lb_; }
+Vec3f Voxelizer::GetLowerBound() { return *lb_; }
 
-V3SP Voxelizer::GetUpperBound() { return ub_; }
+Vec3f Voxelizer::GetUpperBound() { return *ub_; }
 
-V3SP Voxelizer::GetMeshLowerBound() { return mesh_lb_; }
+Vec3f Voxelizer::GetMeshLowerBound() { return *mesh_lb_; }
 
-V3SP Voxelizer::GetMeshUpperBound() { return mesh_ub_; }
+Vec3f Voxelizer::GetMeshUpperBound() { return *mesh_ub_; }
 
 AVISP Voxelizer::GetVoxels() { return voxels_; }
 
-V3SP Voxelizer::GetHalfUnit() { return half_unit_; }
+Vec3f Voxelizer::GetHalfUnit() { return *half_unit_; }
+
+Vec3f Voxelizer::GetUnit() { return *unit_; }
 
 VoxelIndex Voxelizer::GetTotalSize() { return compressed_total_size_; }
 

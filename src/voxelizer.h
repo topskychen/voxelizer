@@ -39,12 +39,14 @@ class Voxelizer {
   int mesh_index_;
   std::string p_file_;
 
-  V3SP mesh_lb_, mesh_ub_;          // location
-  V3SP mesh_vox_lb_, mesh_vox_ub_;  // voxels of location
+  V3UP mesh_lb_, mesh_ub_;          // location
+  V3UP mesh_vox_lb_, mesh_vox_ub_;  // voxels of location
 
   float min_lb_, max_ub_;
-  V3SP lb_, ub_, bound_;  // lowerBound and upperBound of the whole space
-  V3SP half_unit_;        // half size of the unit
+  V3UP lb_, ub_, bound_;  // lowerBound and upperBound of the whole space
+  V3UP unit_, half_unit_;        // full or half size of the unit
+
+  int num_meshes_;
 
   V3SP faces_;
   int num_faces_;
@@ -71,31 +73,30 @@ class Voxelizer {
   inline void FillYZ2(const int x);
   inline void FillXZ2(const int y);
   inline void FillXY2(const int z);
-  inline bool InRange(const Vec3f& vc, const V3SP& lb, const V3SP& ub);
-  inline bool InRange(const int& x, const int& y, const int& z, const int& lx,
-                      const int& ly, const int& lz, const int& ux,
-                      const int& uy, const int& uz);
+  inline bool InRange(const Vec3f& vc, const Vec3f& lb, const Vec3f& ub);
+  inline bool InRange(const int x, const int y, const int z, const int lx,
+                      const int ly, const int lz, const int ux,
+                      const int uy, const int uz);
 
-  inline TriSP GetTri(const int tri_id);
-  inline V3SP ConvIndexToVoxel(const VoxelIndex coord);
-  inline VoxelIndex ConvVoxelToIndex(const V3SP& voxel);
+  inline TriangleP GetTri(const int tri_id);
+  inline Vec3f ConvIndexToVoxel(const VoxelIndex coord);
+  void ConvIndexToVoxel(const VoxelIndex coord, Vec3f& voxel);
   inline VoxelIndex ConvVoxelToIndex(const Vec3f& voxel);
-  inline VoxelIndex BfsSurface(const TriSP& tri, const V3SP& lb, const V3SP& ub);
-  inline void RandomPermutation(const V3SP& data, int num);
-  inline void BfsSolid(const VoxelIndex voxel_id);
+  inline VoxelIndex BfsSurface(const TriangleP& tri, const Vec3f& lb, const Vec3f& ub);
+  void RandomPermutation(const V3SP& data, int num);
+  void BfsSolid(const VoxelIndex voxel_id);
 
  public:
   VoxelIndex GetTotalSize();
-  V3SP GetHalfUnit();
+  Vec3f GetHalfUnit();
+  Vec3f GetUnit();
   AVISP GetVoxels();
-  V3SP GetVoxel(const Vec3f& loc);
-  V3SP GetVoxel(const V3SP& loc);
-  V3SP GetLoc(const V3SP& voxel);
-  V3SP GetLoc(const Vec3f& voxel);
-  V3SP GetMeshLowerBound();
-  V3SP GetMeshUpperBound();
-  V3SP GetLowerBound();
-  V3SP GetUpperBound();
+  Vec3f GetVoxel(const Vec3f& loc);
+  Vec3f GetLoc(const Vec3f& voxel);
+  Vec3f GetMeshLowerBound();
+  Vec3f GetMeshUpperBound();
+  Vec3f GetLowerBound();
+  Vec3f GetUpperBound();
   int GetVerticesSize();
   int GetFacesSize();
   V3SP GetVertices();
@@ -107,11 +108,17 @@ class Voxelizer {
   void WriteRawvox(const std::string& p_file);
   void WriteCmpvox(const std::string& p_file);
   absl::Status Init();
-  Voxelizer(int size, const std::string& p_file, int mesh_index=0, bool verbose=false)
+  Voxelizer(int grid_size, const std::string& p_file, int mesh_index=0, bool verbose=false)
       : p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {
-        grid_size_.push_back(size);
-        grid_size_.push_back(size);
-        grid_size_.push_back(size);
+        grid_size_.push_back(grid_size);
+        grid_size_.push_back(grid_size);
+        grid_size_.push_back(grid_size);
+      }
+  Voxelizer(float voxel_size, const std::string& p_file, int mesh_index=0, bool verbose=false)
+      : p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {
+        voxel_size_.push_back(voxel_size);
+        voxel_size_.push_back(voxel_size);
+        voxel_size_.push_back(voxel_size);
       }
   Voxelizer(const std::vector<int>& grid_size, const std::string& p_file, int mesh_index=0, bool verbose=false)
       : grid_size_(grid_size), p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {}

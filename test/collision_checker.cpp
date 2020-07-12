@@ -43,20 +43,20 @@ bool CollisionChecker::Init() {
 	if (!status.ok()) return false;
 
   voxelizer_->VoxelizeSurface(num_thread_);
-  V3SP lb = voxelizer_->GetMeshLowerBound();
-  V3SP ub = voxelizer_->GetMeshUpperBound();
-  extents_[0] = (*lb)[0];
-  extents_[1] = (*lb)[1];
-  extents_[2] = (*lb)[2];
-  extents_[3] = (*ub)[0];
-  extents_[4] = (*ub)[1];
-  extents_[5] = (*ub)[2];
+  Vec3f lb = voxelizer_->GetMeshLowerBound();
+  Vec3f ub = voxelizer_->GetMeshUpperBound();
+  extents_[0] = lb[0];
+  extents_[1] = lb[1];
+  extents_[2] = lb[2];
+  extents_[3] = ub[0];
+  extents_[4] = ub[1];
+  extents_[5] = ub[2];
   size2_ = size_ * size_;
   voxels_.reset(new VoxelIndex[voxelizer_->GetTotalSize()],
                 ArrayDeleter<VoxelIndex>());
   for (int i = 0; i < voxelizer_->GetTotalSize(); ++i)
     voxels_.get()[i] = voxelizer_->GetVoxels().get()[i];
-  unit_.reset(new Box((*voxelizer_->GetHalfUnit()) * 2));
+  unit_.reset(new Box(voxelizer_->GetUnit()));
   PreMeshCO();
 
   std::cout << "done." << std::endl;
@@ -65,8 +65,8 @@ bool CollisionChecker::Init() {
 }
 
 COSP CollisionChecker::GenRandomCO(double ratio) {
-  BoxSP box(new Box((*(voxelizer_->GetMeshUpperBound()) -
-                     *(voxelizer_->GetMeshLowerBound())) *
+  BoxSP box(new Box((voxelizer_->GetMeshUpperBound() -
+                     voxelizer_->GetMeshLowerBound()) *
                     ratio));
   Transform3f tf;
   GenRandomTransform(extents_, tf);
@@ -75,13 +75,13 @@ COSP CollisionChecker::GenRandomCO(double ratio) {
 }
 
 inline bool CollisionChecker::TestVoxel(const COSP& cube_co) {
-  const V3SP lb = voxelizer_->GetVoxel(cube_co->getAABB().min_);
-  const V3SP ub = voxelizer_->GetVoxel(cube_co->getAABB().max_);
-  int lx = std::max(0, (int)(*lb)[0]), ux = std::min(size_ - 1, (int)(*ub)[0]),
-      ly = std::max(0, (int)(*lb)[1]), uy = std::min(size_ - 1, (int)(*ub)[1]),
-      lz = std::max(0, (int)(*lb)[2]), uz = std::min(size_ - 1, (int)(*ub)[2]);
+  const Vec3f lb = voxelizer_->GetVoxel(cube_co->getAABB().min_);
+  const Vec3f ub = voxelizer_->GetVoxel(cube_co->getAABB().max_);
+  int lx = std::max(0, (int)lb[0]), ux = std::min(size_ - 1, (int)ub[0]),
+      ly = std::max(0, (int)lb[1]), uy = std::min(size_ - 1, (int)ub[1]),
+      lz = std::max(0, (int)lb[2]), uz = std::min(size_ - 1, (int)ub[2]);
   VoxelIndex voxel_index, tmp;
-  V3SP vxl_box(new Vec3f(0, 0, 0));
+  Vec3f vxl_box;
   //	std::cout << "e" << std::endl;
   // std::cout << *lb << ", " << *ub << std::endl;
   for (int x = lx, y, z; x <= ux; ++x) {
@@ -90,10 +90,10 @@ inline bool CollisionChecker::TestVoxel(const COSP& cube_co) {
         voxel_index = x * size2_ + y * size_ + z;
         tmp = (voxels_.get())[voxel_index / kBatchSize];
         if (!GETBIT(tmp, voxel_index)) continue;
-        vxl_box->setValue(x, y, z);
+        vxl_box.setValue(x, y, z);
         // Transform3f tf(*voxelizer_->GetLoc(vxl_box));
-        Transform3f tf(*voxelizer_->GetLoc(vxl_box) +
-                       *voxelizer_->GetHalfUnit());
+        Transform3f tf(voxelizer_->GetLoc(vxl_box) +
+                       voxelizer_->GetHalfUnit());
         // std::cout << *voxelizer_->GetLoc(vxl_box) << std::endl;
         CollisionRequest request;
         CollisionResult result;

@@ -50,7 +50,7 @@ struct ArrayDeleter {
   void operator()(T const* p) { delete[] p; }
 };
 
-bool Collide(const V3SP& size, const V3SP& boxAA, const TriSP& tri);
+bool Collide(const Vec3f& size, const Vec3f& boxAA, const TriangleP& tri);
 inline void Fill(const Vec3f& vc, float ft[3]);
 
 int Random(const int l, const int r);
