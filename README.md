@@ -20,7 +20,7 @@ This project voxelizes the meshes in STL file ***without*** the condition of *wa
 ----------
 
 - Use thread pool. 
-- Use bit compression to record and order the voxel. First, I store voxel (x, y, z) to index=x\*size\*size + y\*size + size, where size is the voxel grid size, and I call the compressed format as *index*. For instance, with size=4, index=1 indicates voxel (0,0,1), index=4 indicates voxel (0,1,0). With indexes, all voxels can be represented with a binary string. For instance, '010010' means the voxels with indexes of 1 and 4 are collided with the mesh, while others are not. The binary string is further compressed with 32-bit unsigned int array.
+- Use bit compression to record and order the voxel. First, I store voxel (x, y, z) to index=x\*size_y\*size_z + y\*size_z + z, where size_{x,y,z} are the voxel grid size, and I call the compressed format as *index*. For instance, with size=4, index=1 indicates voxel (0,0,1), index=4 indicates voxel (0,1,0). With indexes, all voxels can be represented with a binary string. For instance, '010010' means the voxels with indexes of 1 and 4 are collided with the mesh, while others are not. The binary string is further compressed with 64-bit unsigned int array.
 - Use atomic<unsigned int> on the int array (the conceptional binary string) to guarantee the correctness when multi threads write the results, i.e., set the '0' or '1' to the int array. This design gives better parallel performance.
 - Estimate the bounding box size of a triangle to guide which method is more suitable for surface voxelization.
 - Randomly permutate the triangles' order to reduce the possibility of lock, thus get better parallel performance.
@@ -73,21 +73,25 @@ Next, in linux, use `make` in 'build' directory to compile the code.
 
 ```Allowed options:
   --help                 produce help message
-  --grid_size arg (=256) grid size of [1, 1024], the granularity of voxelizer
-  --num_thread arg (=4)  number of thread to run voxelizer
-  --verbose arg (=0)     print debug info
-  --input arg            input file to be voxelized, file type will be inferred
-                         from file suffix
-  --output arg           output file to store voxelized result
-  --format arg (=binvox) output format, can be binvox, rawvox, or cmpvox
-  --mode arg (=solid)    voxelizer mode, surface or solid
-  --mesh_index arg (=0)  mesh index to be voxelized
+  --format (output format, can be binvox, rawvox, or cmpvox);
+      default: "binvox";
+  --grid_size (grid size, the granularity of voxelizer. if only one integer is
+    set, assuming the X,Y,Z are the same.); default: ;
+  --input (input file to be voxelized, file type will be inferred from file
+    suffix); default: "";
+  --mesh_index (mesh index to be voxelized); default: 0;
+  --mode (voxelizer mode, surface or solid); default: "solid";
+  --num_thread (number of thread to run voxelizer); default: 4;
+  --output (output file to store voxelized result); default: "";
+  --verbose (print debug info); default: false;
+  --voxel_size (voxel size, which determines the size of each voxel);
+      default: ;
 ```
 
 - Output (voxel file format, it is wrote in `binvox`, `rawvox` and `cmpvox` mode, the 'read_rawvox.cpp' in test folder provides a sample code to load the .rawvox file.) `rawvox` is the following format:
   - header
-    - grid_size   
-    one integer denotes the size of grid system, e.g., 256
+    - size_x, size_y, size_z   
+    three integer denotes the size of grid system, e.g., 256, 256, 256
     - lowerbound_x lowerbound_y lowerbound_z  
     three doubles denote the lower bound of the original system, e.g., -0.304904 -0.304904 -0.304904
     - voxel_size   
@@ -100,7 +104,7 @@ When we have the voxel (x,y,z), we can get the box in original space as follows:
 
 When you are in 'build' directory, a running example is: 
 
-``` ./bin/voxelizer --input=../data/ironman.obj --output=../playground/ironman_2.binvox --grid_size=256 --verbose=on```
+``` ./bin/voxelizer --input=../data/ironman.obj --output=../playground/ironman_2.binvox --grid_size=256 --verbose=true```
 
 
 
@@ -108,7 +112,7 @@ For your reference, the pseudo output code for output is:
 
 ```C++
 ofstream* output = new ofstream(p_file.c_str(), ios::out | ios::binary);
-*output << grid_size << endl;
+*output << size_x << " " << size_y << " " << size_z << endl;
 *output << lowerbound_x << " " << lowerbound_y << " " << lowerbound_z << endl;
 *output << voxel_size << endl;
 for (x,y,z) in voxels:
