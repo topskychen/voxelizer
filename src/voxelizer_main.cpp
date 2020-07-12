@@ -18,7 +18,7 @@ using voxelizer::Voxelizer;
 using voxelizer::ToVector3Int;
 using voxelizer::ToVector3Float;
 
-ABSL_FLAG(std::vector<std::string>, grid_size, {}, "grid size of [1, 1024], the granularity of voxelizer. if only one integer is set, assuming the X,Y,Z are the same.");
+ABSL_FLAG(std::vector<std::string>, grid_size, {}, "grid size, the granularity of voxelizer. if only one integer is set, assuming the X,Y,Z are the same.");
 ABSL_FLAG(std::vector<std::string>, voxel_size, {}, "voxel size, which determines the size of each voxel");
 ABSL_FLAG(int, num_thread, 4, "number of thread to run voxelizer");
 ABSL_FLAG(bool, verbose, false, "print debug info");
@@ -53,38 +53,37 @@ int main(int argc, char* argv[]) {
   ABSL_INTERNAL_CHECK(!input_file.empty(), "input should be non-empty");
   ABSL_INTERNAL_CHECK(!output_file.empty(), "output should be non-empty");
   ABSL_INTERNAL_CHECK(grid_size.empty() ^ voxel_size.empty(), "if and only if grid_size or voxel_size should be set.");
-  // ABSL_INTERNAL_CHECK(grid_size <= 1024, "currently this voxelizer only supports not greater than 1024. contact topskychen@gmail.com if you need more grid_size.");
 
   Timer timer;
 
   timer.Restart();
   Voxelizer voxelizer(grid_size, input_file, mesh_index, verbose);
   if (!voxelizer.Init()) {
-    cout << "voxelizer fails initialization ";
+    std::cout << "voxelizer fails initialization ";
     return 1;
   }
   timer.Stop();
-  cout << "voxelizer initialization ";
+  std::cout << "voxelizer initialization ";
   timer.PrintTimeInMs();
-  cout << "-------------------------------------------" << endl;
+  std::cout << "-------------------------------------------" << std::endl;
   timer.Restart();
   voxelizer.VoxelizeSurface(num_thread);
   timer.Stop();
-  cout << "surface voxelization ";
+  std::cout << "surface voxelization ";
   timer.PrintTimeInMs();
   if (mode == "solid") {
-    cout << "-------------------------------------------" << endl;
+    std::cout << "-------------------------------------------" << std::endl;
     timer.Restart();
     voxelizer.VoxelizeSolid(num_thread);
     timer.Stop();
-    cout << "solid voxelization ";
+    std::cout << "solid voxelization ";
     timer.PrintTimeInMs();
   }
-  cout << "-------------------------------------------" << endl;
+  std::cout << "-------------------------------------------" << std::endl;
   timer.Restart();
   voxelizer.Write(output_file, format);
   timer.Stop();
-  cout << "writing file ";
+  std::cout << "writing file ";
   timer.PrintTimeInMs();
 
   return 0;

@@ -27,15 +27,20 @@ using namespace fcl;
 
 namespace voxelizer {
 
+// we use unsigned int64 as the index
+typedef uint64_t VoxelIndex;
+// we batch with 64 bit.
+const int kBatchSize = 64;
+
 typedef boost::shared_ptr<TriangleP> TriSP;
 typedef boost::shared_ptr<Box> BoxSP;
 typedef boost::shared_ptr<Vec3f> V3SP;
 
-typedef boost::atomic_uint AUint;
-typedef boost::shared_ptr<boost::atomic_uint> AUintSP;
+typedef std::atomic<VoxelIndex> AVI;
+typedef boost::shared_ptr<std::atomic<VoxelIndex>> AVISP;
 
-typedef boost::unordered_set<unsigned int> HashSet;
-typedef boost::shared_ptr<unsigned int> UintSP;
+typedef boost::unordered_set<VoxelIndex> HashSet;
+typedef boost::shared_ptr<VoxelIndex> VISP;
 
 typedef unsigned char Byte;
 

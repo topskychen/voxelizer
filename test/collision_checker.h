@@ -23,12 +23,11 @@
 
 namespace collision_checker {
 
-typedef unique_ptr<voxelizer::Voxelizer> VoxUP;
+typedef std::unique_ptr<voxelizer::Voxelizer> VoxUP;
 typedef boost::shared_ptr<CollisionObject> COSP;
-typedef unique_ptr<CollisionObject> COUP;
+typedef std::unique_ptr<CollisionObject> COUP;
 typedef fcl::BVHModel<OBBRSS> Model;
 typedef boost::shared_ptr<Model> ModelSP;
-typedef boost::shared_ptr<unsigned int> UintSP;
 
 class CollisionChecker {
   void EulerToMatrix(FCL_REAL a, FCL_REAL b, FCL_REAL c, Matrix3f& R);
@@ -39,11 +38,11 @@ class CollisionChecker {
   void GenRandomTransform(FCL_REAL extents[6], Transform3f& transform);
   VoxUP voxelizer_;
   COUP mesh_co_;
-  vector<Vec3f> vertices_;
-  vector<Triangle> triangles_;
+  std::vector<Vec3f> vertices_;
+  std::vector<Triangle> triangles_;
   int size_, size2_, num_thread_;
-  string p_file_;
-  UintSP voxels_;
+  std::string p_file_;
+  voxelizer::VISP voxels_;
   voxelizer::BoxSP unit_;
 
  public:
@@ -51,7 +50,7 @@ class CollisionChecker {
   inline bool TestMesh(const COSP& cube_co);
   void Test(int num_cases, double ratio);
   bool Init();
-  CollisionChecker(int size, int num_thread, const string& p_file)
+  CollisionChecker(int size, int num_thread, const std::string& p_file)
       : size_(size),
         num_thread_(num_thread),
         p_file_(p_file),

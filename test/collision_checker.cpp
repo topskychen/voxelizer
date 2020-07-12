@@ -6,7 +6,6 @@
  */
 
 #include "collision_checker.h"
-using namespace std;
 
 using voxelizer::ArrayDeleter;
 using voxelizer::BoxSP;
@@ -14,6 +13,7 @@ using voxelizer::kBatchSize;
 using voxelizer::Timer;
 using voxelizer::V3SP;
 using voxelizer::Voxelizer;
+using voxelizer::VoxelIndex;
 
 namespace collision_checker {
 
@@ -37,14 +37,11 @@ void CollisionChecker::EulerToMatrix(FCL_REAL a, FCL_REAL b, FCL_REAL c,
 }
 
 bool CollisionChecker::Init() {
-	cout << "collision checker init..." << endl;
+	std::cout << "collision checker init..." << std::endl;
 
 	if (!voxelizer_->Init()) return false;
 
   voxelizer_->VoxelizeSurface(num_thread_);
-  // voxelizer_->VoxelizeSolid(num_thread);
-  //	V3SP lb = voxelizer_->GetLowerBound();
-  //	V3SP ub = voxelizer_->GetUpperBound();
   V3SP lb = voxelizer_->GetMeshLowerBound();
   V3SP ub = voxelizer_->GetMeshUpperBound();
   extents_[0] = (*lb)[0];
@@ -54,14 +51,14 @@ bool CollisionChecker::Init() {
   extents_[4] = (*ub)[1];
   extents_[5] = (*ub)[2];
   size2_ = size_ * size_;
-  voxels_.reset(new unsigned int[voxelizer_->GetTotalSize()],
-                ArrayDeleter<unsigned int>());
+  voxels_.reset(new VoxelIndex[voxelizer_->GetTotalSize()],
+                ArrayDeleter<VoxelIndex>());
   for (int i = 0; i < voxelizer_->GetTotalSize(); ++i)
     voxels_.get()[i] = voxelizer_->GetVoxels().get()[i];
   unit_.reset(new Box((*voxelizer_->GetHalfUnit()) * 2));
   PreMeshCO();
 
-  cout << "done." << endl;
+  std::cout << "done." << std::endl;
 
   return true;
 }
@@ -79,24 +76,24 @@ COSP CollisionChecker::GenRandomCO(double ratio) {
 inline bool CollisionChecker::TestVoxel(const COSP& cube_co) {
   const V3SP lb = voxelizer_->GetVoxel(cube_co->getAABB().min_);
   const V3SP ub = voxelizer_->GetVoxel(cube_co->getAABB().max_);
-  int lx = max(0, (int)(*lb)[0]), ux = min(size_ - 1, (int)(*ub)[0]),
-      ly = max(0, (int)(*lb)[1]), uy = min(size_ - 1, (int)(*ub)[1]),
-      lz = max(0, (int)(*lb)[2]), uz = min(size_ - 1, (int)(*ub)[2]);
-  unsigned int voxelInt, tmp;
+  int lx = std::max(0, (int)(*lb)[0]), ux = std::min(size_ - 1, (int)(*ub)[0]),
+      ly = std::max(0, (int)(*lb)[1]), uy = std::min(size_ - 1, (int)(*ub)[1]),
+      lz = std::max(0, (int)(*lb)[2]), uz = std::min(size_ - 1, (int)(*ub)[2]);
+  VoxelIndex voxel_index, tmp;
   V3SP vxl_box(new Vec3f(0, 0, 0));
-  //	cout << "e" << endl;
-  // cout << *lb << ", " << *ub << endl;
+  //	std::cout << "e" << std::endl;
+  // std::cout << *lb << ", " << *ub << std::endl;
   for (int x = lx, y, z; x <= ux; ++x) {
     for (y = ly; y <= uy; ++y) {
       for (z = lz; z <= uz; ++z) {
-        voxelInt = x * size2_ + y * size_ + z;
-        tmp = (voxels_.get())[voxelInt / kBatchSize];
-        if (!GETBIT(tmp, voxelInt)) continue;
+        voxel_index = x * size2_ + y * size_ + z;
+        tmp = (voxels_.get())[voxel_index / kBatchSize];
+        if (!GETBIT(tmp, voxel_index)) continue;
         vxl_box->setValue(x, y, z);
         // Transform3f tf(*voxelizer_->GetLoc(vxl_box));
         Transform3f tf(*voxelizer_->GetLoc(vxl_box) +
                        *voxelizer_->GetHalfUnit());
-        // cout << *voxelizer_->GetLoc(vxl_box) << endl;
+        // std::cout << *voxelizer_->GetLoc(vxl_box) << std::endl;
         CollisionRequest request;
         CollisionResult result;
         COUP box_co(new CollisionObject(unit_, tf));
@@ -125,7 +122,7 @@ void CollisionChecker::Test(int num_cases, double ratio) {
   for (int i = 0; i < num_cases; ++i) {
     COSP cube_co = GenRandomCO(ratio);
     cube_co->computeAABB();
-    //		cout << cube_co->getAABB().min_ << endl;
+    //		std::cout << cube_co->getAABB().min_ << std::endl;
     timer.Restart();
     bool res1 = TestVoxel(cube_co);
     timer.Stop();
@@ -147,11 +144,11 @@ void CollisionChecker::Test(int num_cases, double ratio) {
       tn++;
     }
   }
-  cout << "---------- ratio = " << ratio << " ----------" << endl;
-  cout << "accuracy = \t" << 100.0 * (tp + tn) / (num_cases) << "\%" << endl;
-  // cout << "# = \t" << tp << ", " << tn << "\%" << endl;
-  cout << "voxel consumes \t" << t1 / num_cases << " s" << endl;
-  cout << "mesh consumes \t" << t2 / num_cases << " s" << endl;
+  std::cout << "---------- ratio = " << ratio << " ----------" << std::endl;
+  std::cout << "accuracy = \t" << 100.0 * (tp + tn) / (num_cases) << "\%" << std::endl;
+  // std::cout << "# = \t" << tp << ", " << tn << "\%" << std::endl;
+  std::cout << "voxel consumes \t" << t1 / num_cases << " s" << std::endl;
+  std::cout << "mesh consumes \t" << t2 / num_cases << " s" << std::endl;
 }
 
 void CollisionChecker::PreMeshCO() {
@@ -198,20 +195,20 @@ CollisionChecker::~CollisionChecker() {
 }  // namespace collision_checker
 
 int main(int argc, char* argv[]) {
-  string inputFile[] = {"../data/kawada-hironx.stl", "../data/racecar.stl",
+  std::string inputFile[] = {"../data/kawada-hironx.stl", "../data/racecar.stl",
                         "../data/bike.stl"};
   double ratios[] = {0.005, 0.01, 0.02, 0.04, 0.08};
   int gridSize[] = {128, 256, 512};
   int testCases = 1000;
   for (int k = 0; k < 3; ++k) {
     for (int i = 0; i < 3; ++i) {
-      cout << "==================================" << endl;
-      cout << "Intput file : " << inputFile[i] << endl;
-      cout << "Grid size : " << gridSize[k] << endl;
-      cout << "==================================" << endl;
+      std::cout << "==================================" << std::endl;
+      std::cout << "Intput file : " << inputFile[i] << std::endl;
+      std::cout << "Grid size : " << gridSize[k] << std::endl;
+      std::cout << "==================================" << std::endl;
       collision_checker::CollisionChecker checker(gridSize[k], 4, inputFile[i]);
       if (!checker.Init()) {
-      	cout << "Checker init error." << endl;
+      	std::cout << "Checker init error." << std::endl;
       	return 1;
       }
       for (int j = 0; j < 5; ++j) {
