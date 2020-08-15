@@ -10,6 +10,30 @@
 
 namespace voxelizer {
 
+std::vector<int> OutputOption::GetClippingSize() const {
+  return clipping_size_;
+}
+
+void OutputOption::SetClippingSize(const std::vector<int>& clipping_size) {
+  clipping_size_ = clipping_size;
+}
+
+std::string OutputOption::GetFormat() const {
+  return format_;
+}
+
+void OutputOption::SetFormat(const std::string& format) {
+  format_ = format;
+}
+
+std::string OutputOption::GetFilePath() const {
+  return file_path_;
+}
+
+void OutputOption::SetFilePath(const std::string& file_path) {
+  file_path_ = file_path;
+}
+
 absl::Status Voxelizer::Init() {
   if (verbose_) std::cout << "voxelizer init... " << std::endl;
 
@@ -106,8 +130,8 @@ absl::Status Voxelizer::LoadFromMesh(const aiMesh* mesh) {
       mesh_ub_.reset(new Vec3f(mesh->mVertices[i].x, mesh->mVertices[i].y,
                                mesh->mVertices[i].z));
     } else {
-      mesh_lb_->ubound(vertices_.get()[i]);  // bug1
-      mesh_ub_->lbound(vertices_.get()[i]);  // bug2
+      mesh_lb_->ubound(vertices_.get()[i]);
+      mesh_ub_->lbound(vertices_.get()[i]);
     }
   }
 
@@ -313,7 +337,7 @@ void Voxelizer::VoxelizeSolid(int num_thread) {
   if (verbose_) std::cout << "round 2..." << std::endl;
   RunSolidTask2(num_thread);
   for (VoxelIndex i = 0; i < compressed_total_size_; ++i)
-    voxels_.get()[i] = voxels_buffer_.get()[i] ^ (~0);
+    voxels_.get()[i] = voxels_buffer_.get()[i] ^ (~static_cast<VoxelIndex>(0));
   if (verbose_) std::cout << "done." << std::endl;
 }
 
@@ -357,6 +381,12 @@ inline bool Voxelizer::InRange(const int x, const int y, const int z,
   return x >= lx && x <= ux && y >= ly && y <= uy && z >= lz && z <= uz;
 }
 
+inline bool Voxelizer::InRange(const int x, const int y, const int z,
+                               const Vec3f& lb, const Vec3f& ub) {
+  const int lx = lb[0], ly = lb[1], lz = lb[2], ux = ub[0], uy = ub[1], uz = ub[2];
+  return InRange(x, y, z, lx, ly, lz, ux, uy, uz);
+}
+
 inline Vec3f Voxelizer::ConvIndexToVoxel(const VoxelIndex coord) {
   return Vec3f(coord / size_yz_, (coord / size_z_) % size_y_, coord % size_z_);
 }
@@ -382,7 +412,7 @@ inline void Voxelizer::FillYZ(const int x) {
   VoxelIndex voxel_index, tmp;
   for (int y = ly, z; y <= uy; ++y) {
     for (z = lz; z <= uz; ++z) {
-      voxel_index = INDEX(x, y, x);
+      voxel_index = INDEX(x, y, z);
       tmp = (voxels_.get())[voxel_index / kBatchSize].load();
       if (GETBIT(tmp, voxel_index)) {
         break;
@@ -632,98 +662,53 @@ inline void Voxelizer::RunSolidTask2(size_t num_thread) {
   tp.Stop();
 }
 
+void Voxelizer::GetOutputBound(const OutputOption& output_option, Vec3f& output_lb, Vec3f& output_ub) {
+  output_lb = *mesh_vox_lb_;
+  output_ub = *mesh_vox_ub_;
+
+  const std::vector<int> vector_clipping_size = output_option.GetClippingSize();
+  if (vector_clipping_size.size() == 3) {
+    Vec3f clipping_size(vector_clipping_size[0], vector_clipping_size[1], vector_clipping_size[2]);
+    const Vec3f half = (clipping_size-Vec3f(1,1,1))/ 2.0;
+    std::cout << "mesh_vox_lb: " << *mesh_vox_lb_ << std::endl;
+    std::cout << "mesh_vox_ub: " << *mesh_vox_ub_ << std::endl;
+    const Vec3f center = (*mesh_vox_lb_ + *mesh_vox_ub_) / 2.0;
+    const Vec3f clip_vox_lb = center - half, clip_vox_ub = center + clipping_size - half - Vec3f(1,1,1);
+    std::cout << "center: " << center << std::endl;
+    std::cout << "half: " << half << std::endl;
+    
+    output_lb.lbound(clip_vox_lb);
+    output_ub.ubound(clip_vox_ub);  
+  }
+}
+
 /**
  * Write to file with a output format
  */
-void Voxelizer::Write(const std::string& p_file, const std::string& format) {
+void Voxelizer::Write(const OutputOption& output_option) {
+  const std::string format = output_option.GetFormat();
   if (format == "binvox") {
-    WriteBinvox(p_file);
+    WriteBinvox(output_option);
   } else if (format == "rawvox") {
-    WriteRawvox(p_file);
-  } else if (format == "cmpvox") {
-    WriteCmpvox(p_file);
+    WriteRawvox(output_option);
   } else {
     std::cout << "no such format: " << format << std::endl;
   }
 }
 
 /**
- * Write to file with compression.
- */
-void Voxelizer::WriteCmpvox(const std::string& p_file) {
-  if (verbose_) std::cout << "writing voxels to file..." << std::endl;
-  int lx = (*mesh_vox_lb_)[0], ux = (*mesh_vox_ub_)[0], ly = (*mesh_vox_lb_)[1],
-      uy = (*mesh_vox_ub_)[1], lz = (*mesh_vox_lb_)[2], uz = (*mesh_vox_ub_)[2];
-  std::ofstream* output = new std::ofstream(p_file.c_str(), std::ios::out | std::ios::binary);
-
-  //
-  // write header
-  //
-  *output << size_x_ << size_y_ << size_z_;
-  *output << (double)(*lb_)[0] << (double)(*lb_)[1] << (double)(*lb_)[2];
-
-  *output << (double)(*unit_)[0] << (double)(*unit_)[1] << (double)(*unit_)[2];
-  *output << lx << ly << lz << uz << uy << uz;
-
-  if (verbose_) std::cout << "grid size : " << size_x_ << ", " << size_y_ << ", " << size_z_ << std::endl;
-  if (verbose_)
-    std::cout << "lower bound : " << (*lb_)[0] << " " << (*lb_)[1] << " "
-         << (*lb_)[2] << std::endl;
-  if (verbose_) std::cout << "voxel size : " << (*unit_)[0] * 2 << std::endl;
-  if (verbose_)
-    std::cout << "voxel bound : (" << lx << " " << ly << " " << lz << "), "
-         << " (" << ux << " " << uy << " " << uz << ")" << std::endl;
-
-  //
-  // write data
-  //
-  /**
-   * Compression
-   */
-  VoxelIndex index, total_ones = 0;
-  int x = lx, y = ly, z = lz;
-  Byte value, count;
-  while (x <= ux) {
-    index = INDEX(x, y, z);
-    value = GETBIT(voxels_.get()[index / kBatchSize], index);
-    count = 0;
-    while ((x <= ux) && (count < 255) &&
-           (value == GETBIT(voxels_.get()[index / kBatchSize], index))) {
-      z++;
-      if (z > uz) {
-        z = lz;
-        y++;
-        if (y > uy) {
-          y = ly;
-          x++;
-        }
-      }
-      index = INDEX(x, y, z);
-      count++;
-    }
-    if (value) total_ones += count;
-    *output << value << count;
-  }
-
-  output->close();
-  if (verbose_) std::cout << "wrote " << total_ones << " voxels" << std::endl;
-}
-
-/**
  * Write to file, with binvox format, check https://www.patrickmin.com/viewvox/
  */
-void Voxelizer::WriteBinvox(const std::string& p_file) {
+void Voxelizer::WriteBinvox(const OutputOption& output_option) {
   if (verbose_) std::cout << "writing voxels to file..." << std::endl;
 
-  V3SP vxlBox(new Vec3f(0, 0, 0));
   const int lx = 0, ux = size_x_ - 1, ly = 0, uy = size_y_ - 1, lz = 0, uz = size_z_ - 1;
   const int bx = ux - lx + 1, by = uy - ly + 1, bz = uz - lz + 1;
-  const int mesh_lx = (*mesh_vox_lb_)[0], mesh_ly = (*mesh_vox_lb_)[1],
-      mesh_lz = (*mesh_vox_lb_)[2];
-  const int mesh_ux = (*mesh_vox_ub_)[0], mesh_uy = (*mesh_vox_ub_)[1],
-      mesh_uz = (*mesh_vox_ub_)[2];
 
-  std::ofstream* output = new std::ofstream(p_file.c_str(), std::ios::out | std::ios::binary);
+  Vec3f output_lb, output_ub;
+  GetOutputBound(output_option, output_lb, output_ub);
+  
+  std::ofstream* output = new std::ofstream(output_option.GetFilePath().c_str(), std::ios::out | std::ios::binary);
 
   Vec3f& norm_translate = (*lb_);
   float norm_scale = (*bound_).norm();
@@ -751,13 +736,12 @@ void Voxelizer::WriteBinvox(const std::string& p_file) {
   while (x <= ux) {
     index = INDEX(x, y, z);
     value =
-        InRange(x, y, z, mesh_lx, mesh_ly, mesh_lz, mesh_ux, mesh_uy, mesh_uz)
+        InRange(x, y, z, output_lb, output_ub)
             ? GETBIT(voxels_.get()[index / kBatchSize], index)
             : 0;
     count = 0;
     while ((x <= ux) && (count < 255) &&
-           (value == (InRange(x, y, z, mesh_lx, mesh_ly, mesh_lz, mesh_ux,
-                              mesh_uy, mesh_uz)
+           (value == (InRange(x, y, z, output_lb, output_ub)
                           ? GETBIT(voxels_.get()[index / kBatchSize], index)
                           : 0))) {
       z++;
@@ -781,19 +765,20 @@ void Voxelizer::WriteBinvox(const std::string& p_file) {
   if (verbose_)
     std::cout << "wrote " << total_ones << " set voxels out of " << static_cast<VoxelIndex>(bx) * by * bz
          << ", in " << bytes_written << " bytes" << std::endl;
+    std::cout << "bounds are: " << output_lb << ", " << output_ub << std::endl;
 }
 
 /**
  * Write to file with raw format.
  */
-void Voxelizer::WriteRawvox(const std::string& p_file) {
+void Voxelizer::WriteRawvox(const OutputOption& output_option) {
   if (verbose_) std::cout << "writing voxels to file..." << std::endl;
   int lx = 0, ux = size_x_ - 1, ly = 0, uy = size_y_ - 1, lz = 0, uz = size_z_ - 1;
-  int mesh_lx = (*mesh_vox_lb_)[0], mesh_ly = (*mesh_vox_lb_)[1],
-      mesh_lz = (*mesh_vox_lb_)[2];
-  int mesh_ux = (*mesh_vox_ub_)[0], mesh_uy = (*mesh_vox_ub_)[1],
-      mesh_uz = (*mesh_vox_ub_)[2];
-  std::ofstream* output = new std::ofstream(p_file.c_str(), std::ios::out | std::ios::binary);
+
+  Vec3f output_lb, output_ub;
+  GetOutputBound(output_option, output_lb, output_ub);
+
+  std::ofstream* output = new std::ofstream(output_option.GetFilePath().c_str(), std::ios::out | std::ios::binary);
 
   //
   // write header
@@ -815,8 +800,7 @@ void Voxelizer::WriteRawvox(const std::string& p_file) {
   for (int x = lx; x <= ux; ++x) {
     for (int y = ly; y <= uy; ++y) {
       for (int z = lz; z <= uz; ++z) {
-        if (!InRange(x, y, z, mesh_lx, mesh_ly, mesh_lz, mesh_ux, mesh_uy,
-                     mesh_uz))
+        if (!InRange(x, y, z, output_lb, output_ub))
           continue;
         voxel_index = INDEX(x, y, z);
         tmp = (voxels_.get())[voxel_index / kBatchSize].load();

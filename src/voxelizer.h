@@ -33,6 +33,21 @@ const int kThresholdBfsSurface = 10;
 #define SETBIT(voxels, voxel_index) (voxels.get())[voxel_index / kBatchSize] |= (static_cast<VoxelIndex>(1) << (voxel_index % kBatchSize))
 #define INDEX(x, y, z) x * size_yz_ + y * size_z_ + z
 
+class OutputOption {
+public:
+  std::vector<int> GetClippingSize() const;
+  void SetClippingSize(const std::vector<int>& clipping_size);
+  std::string GetFormat() const;
+  void SetFormat(const std::string& format);
+  std::string GetFilePath() const;
+  void SetFilePath(const std::string& file_path);
+
+private:
+  std::string file_path_;
+  std::string format_;
+  std::vector<int> clipping_size_;
+};
+
 class Voxelizer {
   bool is_init_;
   bool verbose_;
@@ -77,7 +92,8 @@ class Voxelizer {
   inline bool InRange(const int x, const int y, const int z, const int lx,
                       const int ly, const int lz, const int ux,
                       const int uy, const int uz);
-
+  inline bool InRange(const int x, const int y, const int z,
+                               const Vec3f& lb, const Vec3f& ub);
   inline TriangleP GetTri(const int tri_id);
   inline Vec3f ConvIndexToVoxel(const VoxelIndex coord);
   void ConvIndexToVoxel(const VoxelIndex coord, Vec3f& voxel);
@@ -85,6 +101,7 @@ class Voxelizer {
   inline VoxelIndex BfsSurface(const TriangleP& tri, const Vec3f& lb, const Vec3f& ub);
   void RandomPermutation(const V3SP& data, int num);
   void BfsSolid(const VoxelIndex voxel_id);
+  void GetOutputBound(const OutputOption& output_option, Vec3f& output_lb, Vec3f& output_ub);
 
  public:
   VoxelIndex GetTotalSize();
@@ -103,10 +120,9 @@ class Voxelizer {
   V3SP GetFaces();
   void VoxelizeSurface(int num_thread = 1);
   void VoxelizeSolid(int num_thread = 1);
-  void Write(const std::string& p_file, const std::string& format);
-  void WriteBinvox(const std::string& p_file);
-  void WriteRawvox(const std::string& p_file);
-  void WriteCmpvox(const std::string& p_file);
+  void Write(const OutputOption& output_option);
+  void WriteBinvox(const OutputOption& output_option);
+  void WriteRawvox(const OutputOption& output_option);
   absl::Status Init();
   Voxelizer(int grid_size, const std::string& p_file, int mesh_index=0, bool verbose=false)
       : p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {

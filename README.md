@@ -72,23 +72,25 @@ Next, in linux, use `make` in 'build' directory to compile the code.
 `voxelizer --help` will give all the parameters.
 
 ```Allowed options:
-  --help                 produce help message
-  --format (output format, can be binvox (https://www.patrickmin.com/binvox/), rawvox, or cmpvox);
-      default: "binvox";
-  --grid_size (grid size, the granularity of voxelizer. if only one integer is
-    set, assuming the X,Y,Z are the same.); default: ;
-  --input (input file to be voxelized, file type will be inferred from file
-    suffix); default: "";
-  --mesh_index (mesh index to be voxelized); default: 0;
-  --mode (voxelizer mode, surface or solid); default: "solid";
-  --num_thread (number of thread to run voxelizer); default: 4;
-  --output (output file to store voxelized result); default: "";
-  --verbose (print debug info); default: false;
-  --voxel_size (voxel size, which determines the size of each voxel);
-      default: ;
+    --clipping_size (clipping size (x,y,z) to clip the voxelized result. The
+      clipping size is grid size based. If only one integter is specified,
+      clipping size is initialized as (x,x,x). If not set, the result is not
+      clipped.); default: ;
+    --format (output format, can be binvox or rawvox); default: "binvox";
+    --grid_size (grid size, the granularity of voxelizer. if only one integer is
+      set, assuming the X,Y,Z are the same.); default: ;
+    --input (input file to be voxelized, file type will be inferred from file
+      suffix); default: "";
+    --mesh_index (mesh index to be voxelized); default: 0;
+    --mode (voxelizer mode, surface or solid); default: "solid";
+    --num_thread (number of thread to run voxelizer); default: 4;
+    --output (output file to store voxelized result); default: "";
+    --verbose (print debug info); default: false;
+    --voxel_size (voxel size, which determines the size of each voxel);
+      default: ;    
 ```
 
-<!--- Output (voxel file format, it is wrote in `binvox`, `rawvox` and `cmpvox` mode, the 'read_rawvox.cpp' in test folder provides a sample code to load the .rawvox file.) `rawvox` is the following format:-->
+<!--- Output (voxel file format, it is wrote in `binvox` or `rawvox` mode, the 'read_rawvox.cpp' in test folder provides a sample code to load the .rawvox file.) `rawvox` is the following format:-->
 <!--  - header-->
 <!--    - size_x, size_y, size_z   -->
 <!--    three integer denotes the size of grid system, e.g., 256, 256, 256-->
