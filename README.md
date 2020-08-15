@@ -111,7 +111,7 @@ It outputs a `binvox` file with grid size `256 x 256 x 256`.
 
 If you specify `--voxel_size=0.1`, instead, it will output a file with each voxel size is `0.1 x 0.1 x 0.1`. Note that the dimensions can be different.
 
-To view the `ironman.binbox` file, you may use the viewvox here: https://www.patrickmin.com/viewvox/.
+To view the `ironman.binbox` file, you may use the viewvox here: https://www.patrickmin.com/viewvox/ or https://raahii.github.io/simple_voxel_viewer/index.html.
 
 
 <!--For your reference, the pseudo output code for output is:-->
