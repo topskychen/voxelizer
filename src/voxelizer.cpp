@@ -670,12 +670,14 @@ void Voxelizer::GetOutputBound(const OutputOption& output_option, Vec3f& output_
   if (vector_clipping_size.size() == 3) {
     Vec3f clipping_size(vector_clipping_size[0], vector_clipping_size[1], vector_clipping_size[2]);
     const Vec3f half = (clipping_size-Vec3f(1,1,1))/ 2.0;
-    std::cout << "mesh_vox_lb: " << *mesh_vox_lb_ << std::endl;
-    std::cout << "mesh_vox_ub: " << *mesh_vox_ub_ << std::endl;
     const Vec3f center = (*mesh_vox_lb_ + *mesh_vox_ub_) / 2.0;
     const Vec3f clip_vox_lb = center - half, clip_vox_ub = center + clipping_size - half - Vec3f(1,1,1);
-    std::cout << "center: " << center << std::endl;
-    std::cout << "half: " << half << std::endl;
+    if (verbose_) {
+      std::cout << "mesh_vox_lb: " << *mesh_vox_lb_ << std::endl;
+      std::cout << "mesh_vox_ub: " << *mesh_vox_ub_ << std::endl;  
+      std::cout << "center: " << center << std::endl;
+      std::cout << "half: " << half << std::endl;
+    }
     
     output_lb.lbound(clip_vox_lb);
     output_ub.ubound(clip_vox_ub);  
