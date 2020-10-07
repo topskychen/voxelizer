@@ -33,26 +33,134 @@ const int kThresholdBfsSurface = 10;
 #define SETBIT(voxels, voxel_index) (voxels.get())[voxel_index / kBatchSize] |= (static_cast<VoxelIndex>(1) << (voxel_index % kBatchSize))
 #define INDEX(x, y, z) x * size_yz_ + y * size_z_ + z
 
-class OutputOption {
+class Option {
 public:
-  std::vector<int> GetClippingSize() const;
-  void SetClippingSize(const std::vector<int>& clipping_size);
-  std::string GetFormat() const;
-  void SetFormat(const std::string& format);
-  std::string GetFilePath() const;
-  void SetFilePath(const std::string& file_path);
+  Option() {
+    mesh_index_ = 0;
+    verbose_ = false;
+    with_meta_=  false;
+  }
+  std::vector<int> ClippingSize() const {
+    return clipping_size_;
+  }
+  void SetClippingSize(const std::vector<int>& clipping_size) {
+     clipping_size_ = clipping_size;
+  }
+  std::string Format() const {
+    return format_;
+  }
+  void SetFormat(const std::string& format) {
+    format_ = format;
+  }
+  std::string InFilePath() const {
+    return in_file_path_;
+  }
+  void SetInFilePath(const std::string& in_file_path) {
+    in_file_path_ = in_file_path;
+  }
+  std::string OutFilePath() const {
+    return out_file_path_;
+  }
+  void SetOutFilePath(const std::string& out_file_path) {
+    out_file_path_ = out_file_path;
+  }
+  int MeshIndex() const {
+    return mesh_index_;
+  }
+  void SetMeshIndex(const int mesh_index) {
+    mesh_index_ = mesh_index;
+  }
+  bool Verbose() {
+    return verbose_;
+  }
+  void SetVerbose(const bool verbose) {
+    verbose_ = verbose;
+  }
+  bool WithMeta() const {
+    return with_meta_;
+  }
+  void SetWithMeta(const bool with_meta) {
+    with_meta_ = with_meta;
+  }
 
 private:
-  std::string file_path_;
+  std::string in_file_path_;
+  std::string out_file_path_;
   std::string format_;
   std::vector<int> clipping_size_;
+  int mesh_index_;
+  bool verbose_;
+  bool with_meta_;
+};
+
+enum VoxelFlagsEnum {
+    AIR               = 0x01 <<  0,        // Optimal : When a voxel cell is empty 
+    SOLID             = 0x01 <<  1,        // Optimal : When a voxel cell is not empty
+    INSIDE            = 0x01 <<  2,        // Voxel center is inside the mesh surface , TIGHT
+    OUTSIDE           = 0x01 <<  3,        // Voxel center is outside the mesh surface , NOT TIGHT
+    SURFACE           = 0x01 <<  4,        // Voxel is generated from surface in the surface voxelizing pass
+    FILLED            = 0x01 <<  5,        // Voxel is generated in solid flood filling in the solid voxelizing pass
+};
+
+class VoxelMeta {
+public:
+  VoxelIndex Index() const {
+    return index_;
+  }
+  void SetIndex(const VoxelIndex& index) {
+    index_ = index;
+  }
+  VoxelFlags Flags() const {
+    return flags_;
+  }
+  void SetFlags(const VoxelFlags& flags) {
+    flags_ = flags;
+  }
+  bool Air() const {
+    return (flags_ & VoxelFlagsEnum::AIR) > 0;
+  }
+  void SetAir() {
+    flags_ |= VoxelFlagsEnum::AIR;
+  }
+  bool Solid() const {
+    return (flags_ & VoxelFlagsEnum::SOLID) > 0;
+  }
+  void SetSolid() {
+    flags_ |= VoxelFlagsEnum::SOLID; 
+  }
+  bool Inside() const {
+    return (flags_ & VoxelFlagsEnum::INSIDE) > 0;
+  }
+  void SetInside() {
+    flags_ |= VoxelFlagsEnum::INSIDE;
+  }
+  bool Outside() const {
+    return (flags_ & VoxelFlagsEnum::OUTSIDE) > 0;
+  }
+  void SetOutSide() {
+    flags_ |= VoxelFlagsEnum::OUTSIDE;
+  }
+  bool Surface() const {
+    return (flags_ & VoxelFlagsEnum::SURFACE) > 0;
+  }
+  void SetSurface() {
+    flags_ |= VoxelFlagsEnum::SURFACE;
+  }
+  bool Filled() const {
+    return (flags_ & VoxelFlagsEnum::FILLED) > 0;
+  }
+  void SetFilled() {
+    flags_ |= VoxelFlagsEnum::FILLED;
+  }
+
+private:
+  VoxelIndex index_;
+  VoxelFlags flags_;
 };
 
 class Voxelizer {
+  Option option_;
   bool is_init_;
-  bool verbose_;
-  int mesh_index_;
-  std::string p_file_;
 
   V3UP mesh_lb_, mesh_ub_;          // location
   V3UP mesh_vox_lb_, mesh_vox_ub_;  // voxels of location
@@ -101,45 +209,48 @@ class Voxelizer {
   inline VoxelIndex BfsSurface(const TriangleP& tri, const Vec3f& lb, const Vec3f& ub);
   void RandomPermutation(const V3SP& data, int num);
   void BfsSolid(const VoxelIndex voxel_id);
-  void GetOutputBound(const OutputOption& output_option, Vec3f& output_lb, Vec3f& output_ub);
+  void GetOutputBound(Vec3f& output_lb, Vec3f& output_ub);
 
  public:
-  VoxelIndex GetTotalSize();
-  Vec3f GetHalfUnit();
-  Vec3f GetUnit();
-  AVISP GetVoxels();
+  VoxelIndex TotalSize();
+  Vec3f HalfUnit();
+  Vec3f Unit();
+  AVISP Voxels();
   Vec3f GetVoxel(const Vec3f& loc);
   Vec3f GetLoc(const Vec3f& voxel);
-  Vec3f GetMeshLowerBound();
-  Vec3f GetMeshUpperBound();
-  Vec3f GetLowerBound();
-  Vec3f GetUpperBound();
-  int GetVerticesSize();
-  int GetFacesSize();
-  V3SP GetVertices();
-  V3SP GetFaces();
+  Vec3f MeshLowerBound();
+  Vec3f MeshUpperBound();
+  Vec3f LowerBound();
+  Vec3f UpperBound();
+  int VerticesSize();
+  int FacesSize();
+  V3SP Vertices();
+  V3SP Faces();
   void VoxelizeSurface(int num_thread = 1);
   void VoxelizeSolid(int num_thread = 1);
-  void Write(const OutputOption& output_option);
-  void WriteBinvox(const OutputOption& output_option);
-  void WriteRawvox(const OutputOption& output_option);
+  void Write();
+  void WriteBinvox();
+  void WriteRawvox();
   absl::Status Init();
-  Voxelizer(int grid_size, const std::string& p_file, int mesh_index=0, bool verbose=false)
-      : p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {
+  void SetOption(const Option& option) {
+    option_ = option;
+  }
+  Voxelizer(int grid_size, const Option& option)
+      : option_(option) {
         grid_size_.push_back(grid_size);
         grid_size_.push_back(grid_size);
         grid_size_.push_back(grid_size);
       }
-  Voxelizer(float voxel_size, const std::string& p_file, int mesh_index=0, bool verbose=false)
-      : p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {
+  Voxelizer(float voxel_size, const Option& option)
+      : option_(option) {
         voxel_size_.push_back(voxel_size);
         voxel_size_.push_back(voxel_size);
         voxel_size_.push_back(voxel_size);
       }
-  Voxelizer(const std::vector<int>& grid_size, const std::string& p_file, int mesh_index=0, bool verbose=false)
-      : grid_size_(grid_size), p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {}
-  Voxelizer(const std::vector<float>& voxel_size, const std::string& p_file, int mesh_index=0, bool verbose=false)
-      : voxel_size_(voxel_size), p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {}
+  Voxelizer(const std::vector<int>& grid_size, const Option& option)
+      : grid_size_(grid_size), option_(option) {}
+  Voxelizer(const std::vector<float>& voxel_size, const Option& option)
+      : voxel_size_(voxel_size), option_(option) {}
   virtual ~Voxelizer();
 };
 

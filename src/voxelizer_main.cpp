@@ -17,7 +17,7 @@ using voxelizer::Timer;
 using voxelizer::Voxelizer;
 using voxelizer::ToVector3Int;
 using voxelizer::ToVector3Float;
-using voxelizer::OutputOption;
+using voxelizer::Option;
 
 ABSL_FLAG(std::vector<std::string>, grid_size, {}, "grid size, the granularity of voxelizer. if only one integer is set, assuming the X,Y,Z are the same.");
 ABSL_FLAG(std::vector<std::string>, voxel_size, {}, "voxel size, which determines the size of each voxel");
@@ -29,10 +29,11 @@ ABSL_FLAG(std::string, format, "binvox", "output format, can be binvox or rawvox
 ABSL_FLAG(std::string, mode, "solid", "voxelizer mode, surface or solid");
 ABSL_FLAG(int, mesh_index, 0, "mesh index to be voxelized");
 ABSL_FLAG(std::vector<std::string>, clipping_size, {}, "clipping size (x,y,z) to clip the voxelized result. The clipping size is grid size based. If only one integter is specified, clipping size is initialized as (x,x,x). If not set, the result is not clipped.");
+ABSL_FLAG(bool, with_meta, false, "write voxel meta info to .meta file if set to true");
 
-absl::Status PraseOutputOption(OutputOption& output_option) {
+absl::Status PraseOption(Option& option) {
   std::string format = absl::GetFlag(FLAGS_format);
-  output_option.SetFormat(format);
+  option.SetFormat(format);
 
   std::vector<int> clipping_size;
   if (!ToVector3Int(absl::GetFlag(FLAGS_clipping_size), clipping_size)) {
@@ -42,13 +43,28 @@ absl::Status PraseOutputOption(OutputOption& output_option) {
     clipping_size.push_back(clipping_size[0]);
     clipping_size.push_back(clipping_size[0]);
   }
-  output_option.SetClippingSize(clipping_size);
+  option.SetClippingSize(clipping_size);
+
+  std::string input_file = absl::GetFlag(FLAGS_input);
+  if (input_file.empty()) {
+    return absl::InvalidArgumentError("Input should be non-empty");
+  }
+  option.SetInFilePath(input_file);
 
   std::string output_file = absl::GetFlag(FLAGS_output);
   if (output_file.empty()) {
     return absl::InvalidArgumentError("Output should be non-empty");
   }
-  output_option.SetFilePath(output_file);
+  option.SetOutFilePath(output_file);
+
+  int mesh_index = absl::GetFlag(FLAGS_mesh_index);
+  option.SetMeshIndex(mesh_index);
+
+  bool verbose = absl::GetFlag(FLAGS_verbose);
+  option.SetVerbose(verbose);
+
+  bool with_meta = absl::GetFlag(FLAGS_with_meta);
+  option.SetWithMeta(with_meta);
 
   return absl::OkStatus(); 
 }
@@ -71,18 +87,16 @@ int main(int argc, char* argv[]) {
     voxel_size.push_back(voxel_size[0]);
   }
   int num_thread = absl::GetFlag(FLAGS_num_thread);
-  int mesh_index = absl::GetFlag(FLAGS_mesh_index);
-  std::string input_file = absl::GetFlag(FLAGS_input);
+  
   std::string mode = absl::GetFlag(FLAGS_mode);
-  bool verbose = absl::GetFlag(FLAGS_verbose);
+  
 
-  ABSL_INTERNAL_CHECK(!input_file.empty(), "input should be non-empty");
   ABSL_INTERNAL_CHECK(grid_size.empty() ^ voxel_size.empty(), "if and only if grid_size or voxel_size should be set.");
 
-  OutputOption output_option;
-  auto status = PraseOutputOption(output_option);
+  Option option;
+  auto status = PraseOption(option);
   if (!status.ok()) {
-    std::cout << "Failed to parse OutputOption." << std::endl;
+    std::cout << "Failed to parse Option." << std::endl;
     return 1;
   }
 
@@ -91,9 +105,9 @@ int main(int argc, char* argv[]) {
   timer.Restart();
   Voxelizer* voxelizer;
   if (grid_size.empty()) {
-    voxelizer = new Voxelizer(voxel_size, input_file, mesh_index, verbose);
+    voxelizer = new Voxelizer(voxel_size, option);
   } else {
-    voxelizer = new Voxelizer(grid_size, input_file, mesh_index, verbose);
+    voxelizer = new Voxelizer(grid_size, option);
   }
   status = voxelizer->Init();
   if (!status.ok()) {
@@ -119,7 +133,7 @@ int main(int argc, char* argv[]) {
   }
   std::cout << "-------------------------------------------" << std::endl;
   timer.Restart();
-  voxelizer->Write(output_option);
+  voxelizer->Write();
   timer.Stop();
   std::cout << "writing file ";
   timer.PrintTimeInMs();

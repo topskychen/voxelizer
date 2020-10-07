@@ -29,6 +29,7 @@ namespace voxelizer {
 
 // we use unsigned int64 as the index
 typedef uint64_t VoxelIndex;
+typedef uint32_t VoxelFlags;
 // we batch with 64 bit.
 const int kBatchSize = 64;
 

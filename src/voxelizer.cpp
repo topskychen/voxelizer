@@ -10,32 +10,8 @@
 
 namespace voxelizer {
 
-std::vector<int> OutputOption::GetClippingSize() const {
-  return clipping_size_;
-}
-
-void OutputOption::SetClippingSize(const std::vector<int>& clipping_size) {
-  clipping_size_ = clipping_size;
-}
-
-std::string OutputOption::GetFormat() const {
-  return format_;
-}
-
-void OutputOption::SetFormat(const std::string& format) {
-  format_ = format;
-}
-
-std::string OutputOption::GetFilePath() const {
-  return file_path_;
-}
-
-void OutputOption::SetFilePath(const std::string& file_path) {
-  file_path_ = file_path;
-}
-
 absl::Status Voxelizer::Init() {
-  if (verbose_) std::cout << "voxelizer init... " << std::endl;
+  if (option_.Verbose()) std::cout << "voxelizer init... " << std::endl;
 
   if (!(grid_size_.empty() ^ voxel_size_.empty())) {
     return absl::InvalidArgumentError("only one of grid_size and voxel_size can be specifed.");
@@ -48,31 +24,31 @@ absl::Status Voxelizer::Init() {
      * Load scene
      * */
     Assimp::Importer importer;
-    scene = importer.ReadFile(p_file_, aiProcessPreset_TargetRealtime_Quality |
+    scene = importer.ReadFile(option_.InFilePath(), aiProcessPreset_TargetRealtime_Quality |
                                            aiProcess_OptimizeGraph |
                                            aiProcess_OptimizeMeshes);
     if (!scene) {
       return absl::AbortedError("Scene fails to be loaded!");
     }
-    if (verbose_) std::cout << "mesh number: " << scene->mNumMeshes << std::endl;
+    if (option_.Verbose()) std::cout << "mesh number: " << scene->mNumMeshes << std::endl;
     if (scene->mNumMeshes == 0) {
       return absl::AbortedError("0 mesh in the scene!");
     }
-    if (scene->mNumMeshes <= mesh_index_) {
-      return absl::AbortedError("Required mesh index out of range!");
+    if (scene->mNumMeshes <= option_.MeshIndex()) {
+      return absl::AbortedError(absl::StrFormat("Required mesh index %d out of range: %d", option_.MeshIndex(), scene->mNumMeshes));
     }
 
     // TODO(topskychen@gmail.com): consider all the meshes when mesh_index_ is
     // -1.
-    aiMesh* mesh = scene->mMeshes[mesh_index_];
+    aiMesh* mesh = scene->mMeshes[option_.MeshIndex()];
 
     /**
      * Store info.
      */
     num_vertices_ = mesh->mNumVertices;
     num_faces_ = mesh->mNumFaces;
-    if (verbose_) std::cout << "faces : " << num_faces_ << std::endl;
-    if (verbose_) std::cout << "vertices : " << num_vertices_ << std::endl;
+    if (option_.Verbose()) std::cout << "faces : " << num_faces_ << std::endl;
+    if (option_.Verbose()) std::cout << "vertices : " << num_vertices_ << std::endl;
     
     /**
     * Load meshes.
@@ -84,7 +60,7 @@ absl::Status Voxelizer::Init() {
   } catch (std::exception& e) {
     return absl::AbortedError(e.what());
   }
-  if (verbose_) std::cout << "done." << std::endl;
+  if (option_.Verbose()) std::cout << "done." << std::endl;
 
   return absl::OkStatus();
 }
@@ -206,7 +182,7 @@ absl::Status Voxelizer::LoadFromMesh(const aiMesh* mesh) {
     size_ = absl::make_unique<Vec3f>(size_x_, size_y_, size_z_);
   }
 
-  if (verbose_) {
+  if (option_.Verbose()) {
     std::cout << absl::StrFormat("voxel size: %f, %f, %f", (*unit_)[0], (*unit_)[1], (*unit_)[2]) << std::endl;
     std::cout << absl::StrFormat("grid size: %d, %d, %d", size_x_, size_y_, size_z_) << std::endl; 
   }
@@ -215,7 +191,7 @@ absl::Status Voxelizer::LoadFromMesh(const aiMesh* mesh) {
   mesh_vox_lb_ = absl::make_unique<Vec3f>(GetVoxel(*mesh_lb_ + kEpsBox));
   mesh_vox_ub_ = absl::make_unique<Vec3f>(GetVoxel(*mesh_ub_ - kEpsBox));
 
-  if (verbose_) {
+  if (option_.Verbose()) {
     std::cout << "space: " << *lb_ << ", " << *ub_ << std::endl;
     std::cout << "mesh bound: " << *mesh_lb_ << ", " << *mesh_ub_ << std::endl;
     std::cout << "voxel bound: " << *mesh_vox_lb_ << ", " << *mesh_vox_ub_ << std::endl;
@@ -245,13 +221,13 @@ void Voxelizer::VoxelizeSurface(const int num_thread) {
   if (!is_init_) {
     return;
   }
-  if (verbose_) std::cout << "surface voxelizing... " << std::endl;
+  if (option_.Verbose()) std::cout << "surface voxelizing... " << std::endl;
   ThreadPool tp(num_thread);
   for (int i = 0; i < num_faces_; ++i) {
     tp.Run(boost::bind(&Voxelizer::RunSurfaceTask, this, i));
   }
   tp.Stop();
-  if (verbose_) std::cout << "done." << std::endl;
+  if (option_.Verbose()) std::cout << "done." << std::endl;
 }
 
 /**
@@ -331,14 +307,14 @@ void Voxelizer::VoxelizeSolid(int num_thread) {
   if (!is_init_) {
     return;
   }
-  if (verbose_) std::cout << "solid voxelizing... " << std::endl;
-  if (verbose_) std::cout << "round 1..." << std::endl;
+  if (option_.Verbose()) std::cout << "solid voxelizing... " << std::endl;
+  if (option_.Verbose()) std::cout << "round 1..." << std::endl;
   RunSolidTask(num_thread);
-  if (verbose_) std::cout << "round 2..." << std::endl;
+  if (option_.Verbose()) std::cout << "round 2..." << std::endl;
   RunSolidTask2(num_thread);
   for (VoxelIndex i = 0; i < compressed_total_size_; ++i)
     voxels_.get()[i] = voxels_buffer_.get()[i] ^ (~static_cast<VoxelIndex>(0));
-  if (verbose_) std::cout << "done." << std::endl;
+  if (option_.Verbose()) std::cout << "done." << std::endl;
 }
 
 inline void Voxelizer::BfsSolid(const VoxelIndex start_index) {
@@ -662,17 +638,17 @@ inline void Voxelizer::RunSolidTask2(size_t num_thread) {
   tp.Stop();
 }
 
-void Voxelizer::GetOutputBound(const OutputOption& output_option, Vec3f& output_lb, Vec3f& output_ub) {
+void Voxelizer::GetOutputBound(Vec3f& output_lb, Vec3f& output_ub) {
   output_lb = *mesh_vox_lb_;
   output_ub = *mesh_vox_ub_;
 
-  const std::vector<int> vector_clipping_size = output_option.GetClippingSize();
+  const std::vector<int> vector_clipping_size = option_.ClippingSize();
   if (vector_clipping_size.size() == 3) {
     Vec3f clipping_size(vector_clipping_size[0], vector_clipping_size[1], vector_clipping_size[2]);
     const Vec3f half = (clipping_size-Vec3f(1,1,1))/ 2.0;
     const Vec3f center = (*mesh_vox_lb_ + *mesh_vox_ub_) / 2.0;
     const Vec3f clip_vox_lb = center - half, clip_vox_ub = center + clipping_size - half - Vec3f(1,1,1);
-    if (verbose_) {
+    if (option_.Verbose()) {
       std::cout << "mesh_vox_lb: " << *mesh_vox_lb_ << std::endl;
       std::cout << "mesh_vox_ub: " << *mesh_vox_ub_ << std::endl;  
       std::cout << "center: " << center << std::endl;
@@ -687,12 +663,12 @@ void Voxelizer::GetOutputBound(const OutputOption& output_option, Vec3f& output_
 /**
  * Write to file with a output format
  */
-void Voxelizer::Write(const OutputOption& output_option) {
-  const std::string format = output_option.GetFormat();
+void Voxelizer::Write() {
+  const std::string format = option_.Format();
   if (format == "binvox") {
-    WriteBinvox(output_option);
+    WriteBinvox();
   } else if (format == "rawvox") {
-    WriteRawvox(output_option);
+    WriteRawvox();
   } else {
     std::cout << "no such format: " << format << std::endl;
   }
@@ -701,16 +677,16 @@ void Voxelizer::Write(const OutputOption& output_option) {
 /**
  * Write to file, with binvox format, check https://www.patrickmin.com/viewvox/
  */
-void Voxelizer::WriteBinvox(const OutputOption& output_option) {
-  if (verbose_) std::cout << "writing voxels to file..." << std::endl;
+void Voxelizer::WriteBinvox() {
+  if (option_.Verbose()) std::cout << "writing voxels to file..." << std::endl;
 
   const int lx = 0, ux = size_x_ - 1, ly = 0, uy = size_y_ - 1, lz = 0, uz = size_z_ - 1;
   const int bx = ux - lx + 1, by = uy - ly + 1, bz = uz - lz + 1;
 
   Vec3f output_lb, output_ub;
-  GetOutputBound(output_option, output_lb, output_ub);
+  GetOutputBound(output_lb, output_ub);
   
-  std::ofstream* output = new std::ofstream(output_option.GetFilePath().c_str(), std::ios::out | std::ios::binary);
+  std::ofstream* output = new std::ofstream(option_.OutFilePath().c_str(), std::ios::out | std::ios::binary);
 
   Vec3f& norm_translate = (*lb_);
   float norm_scale = (*bound_).norm();
@@ -720,7 +696,7 @@ void Voxelizer::WriteBinvox(const OutputOption& output_option) {
   //
   *output << "#binvox 1" << std::endl;
   *output << "dim " << bx << " " << by << " " << bz << std::endl;
-  if (verbose_) std::cout << "dim : " << bx << " x " << by << " x " << bz << std::endl;
+  if (option_.Verbose()) std::cout << "dim : " << bx << " x " << by << " x " << bz << std::endl;
   *output << "translate " << -norm_translate[0] << " " << -norm_translate[2]
           << " " << -norm_translate[1] << std::endl;
   *output << "scale " << norm_scale << std::endl;
@@ -764,7 +740,7 @@ void Voxelizer::WriteBinvox(const OutputOption& output_option) {
   }
 
   output->close();
-  if (verbose_)
+  if (option_.Verbose())
     std::cout << "wrote " << total_ones << " set voxels out of " << static_cast<VoxelIndex>(bx) * by * bz
          << ", in " << bytes_written << " bytes" << std::endl;
     std::cout << "bounds are: " << output_lb << ", " << output_ub << std::endl;
@@ -773,14 +749,14 @@ void Voxelizer::WriteBinvox(const OutputOption& output_option) {
 /**
  * Write to file with raw format.
  */
-void Voxelizer::WriteRawvox(const OutputOption& output_option) {
-  if (verbose_) std::cout << "writing voxels to file..." << std::endl;
+void Voxelizer::WriteRawvox() {
+  if (option_.Verbose()) std::cout << "writing voxels to file..." << std::endl;
   int lx = 0, ux = size_x_ - 1, ly = 0, uy = size_y_ - 1, lz = 0, uz = size_z_ - 1;
 
   Vec3f output_lb, output_ub;
-  GetOutputBound(output_option, output_lb, output_ub);
+  GetOutputBound(output_lb, output_ub);
 
-  std::ofstream* output = new std::ofstream(output_option.GetFilePath().c_str(), std::ios::out | std::ios::binary);
+  std::ofstream* output = new std::ofstream(option_.OutFilePath().c_str(), std::ios::out | std::ios::binary);
 
   //
   // write header
@@ -790,10 +766,10 @@ void Voxelizer::WriteRawvox(const OutputOption& output_option) {
           << (double)(*lb_)[2] << std::endl;
   *output << (double)(*unit_)[0] << (double)(*unit_)[1] << (double)(*unit_)[2] << std::endl;
 
-  if (verbose_)
+  if (option_.Verbose())
     std::cout << "dim : " << size_x_ << " x " << size_y_ << " x " << size_z_ << std::endl;
-  if (verbose_) std::cout << "lower bound : " << (*lb_) << std::endl;
-  if (verbose_) std::cout << "voxel size : " << (*unit_)[0] << " " << (*unit_)[1] << " " << (*unit_)[2] << std::endl;
+  if (option_.Verbose()) std::cout << "lower bound : " << (*lb_) << std::endl;
+  if (option_.Verbose()) std::cout << "voxel size : " << (*unit_)[0] << " " << (*unit_)[1] << " " << (*unit_)[2] << std::endl;
 
   //
   // write data
@@ -815,35 +791,35 @@ void Voxelizer::WriteRawvox(const OutputOption& output_option) {
     }
   }
   output->close();
-  if (verbose_) std::cout << "wrote " << count << " voxels" << std::endl;
+  if (option_.Verbose()) std::cout << "wrote " << count << " voxels" << std::endl;
 }
 
 Voxelizer::~Voxelizer() {
   // TODO Auto-generated destructor stub
 }
 
-V3SP Voxelizer::GetVertices() { return vertices_; }
+V3SP Voxelizer::Vertices() { return vertices_; }
 
-V3SP Voxelizer::GetFaces() { return faces_; }
+V3SP Voxelizer::Faces() { return faces_; }
 
-int Voxelizer::GetVerticesSize() { return num_vertices_; }
+int Voxelizer::VerticesSize() { return num_vertices_; }
 
-int Voxelizer::GetFacesSize() { return num_faces_; }
+int Voxelizer::FacesSize() { return num_faces_; }
 
-Vec3f Voxelizer::GetLowerBound() { return *lb_; }
+Vec3f Voxelizer::LowerBound() { return *lb_; }
 
-Vec3f Voxelizer::GetUpperBound() { return *ub_; }
+Vec3f Voxelizer::UpperBound() { return *ub_; }
 
-Vec3f Voxelizer::GetMeshLowerBound() { return *mesh_lb_; }
+Vec3f Voxelizer::MeshLowerBound() { return *mesh_lb_; }
 
-Vec3f Voxelizer::GetMeshUpperBound() { return *mesh_ub_; }
+Vec3f Voxelizer::MeshUpperBound() { return *mesh_ub_; }
 
-AVISP Voxelizer::GetVoxels() { return voxels_; }
+AVISP Voxelizer::Voxels() { return voxels_; }
 
-Vec3f Voxelizer::GetHalfUnit() { return *half_unit_; }
+Vec3f Voxelizer::HalfUnit() { return *half_unit_; }
 
-Vec3f Voxelizer::GetUnit() { return *unit_; }
+Vec3f Voxelizer::Unit() { return *unit_; }
 
-VoxelIndex Voxelizer::GetTotalSize() { return compressed_total_size_; }
+VoxelIndex Voxelizer::TotalSize() { return compressed_total_size_; }
 
 }  // namespace voxelizer
