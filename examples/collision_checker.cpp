@@ -130,11 +130,11 @@ void CollisionChecker::Test(int num_cases, double ratio) {
     timer.Restart();
     bool res1 = TestVoxel(cube_co);
     timer.Stop();
-    t1 += timer.TimeInS();
+    t1 += timer.TimeInNs();
     timer.Restart();
     bool res2 = TestMesh(cube_co);
     timer.Stop();
-    t2 += timer.TimeInS();
+    t2 += timer.TimeInNs();
     if (res1 && !res2) {
       fp++;
     }
@@ -151,8 +151,8 @@ void CollisionChecker::Test(int num_cases, double ratio) {
   std::cout << "---------- ratio = " << ratio << " ----------" << std::endl;
   std::cout << "accuracy = \t" << 100.0 * (tp + tn) / (num_cases) << "\%" << std::endl;
   // std::cout << "# = \t" << tp << ", " << tn << "\%" << std::endl;
-  std::cout << "voxel consumes \t" << t1 / num_cases << " s" << std::endl;
-  std::cout << "mesh consumes \t" << t2 / num_cases << " s" << std::endl;
+  std::cout << "voxel consumes \t" << t1 / num_cases << " ns" << std::endl;
+  std::cout << "mesh consumes \t" << t2 / num_cases << " ns" << std::endl;
 }
 
 void CollisionChecker::PreMeshCO() {
@@ -199,8 +199,8 @@ CollisionChecker::~CollisionChecker() {
 }  // namespace collision_checker
 
 int run_benchmark () {
-  const std::string inputFile[] = {"../../data/kawada-hironx.stl", "../../data/racecar.stl",
-                        "../../data/bike.stl"};
+  const std::string inputFile[] = {"../data/kawada-hironx.stl", "../data/racecar.stl",
+                        "../data/bike.stl"};
   const double ratios[] = {0.005, 0.01, 0.02, 0.04, 0.08};
   const int gridSize[] = {128, 256, 512};
   int testCases = 1000;
@@ -224,7 +224,7 @@ int run_benchmark () {
 }
 
 int run_single() {
-  const std::string in_file = "../../data/kawada-hironx.stl";
+  const std::string in_file = "../data/kawada-hironx.stl";
    collision_checker::CollisionChecker checker(256, 4, in_file);
   if (!checker.Init()) {
     std::cout << "Checker init error." << std::endl;
@@ -235,5 +235,8 @@ int run_single() {
 }
 
 int main(int argc, char* argv[]) {
+  if (argc >= 2 && std::string(argv[1]) == "benchmark") {
+    return run_benchmark();
+  }
   return run_single();
 }

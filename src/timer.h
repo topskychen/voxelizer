@@ -22,8 +22,10 @@ class Timer {
   void Stop();
   int64_t TimeInS();
   int64_t TimeInMs();
+  int64_t TimeInNs();
   void PrintTimeInS();
   void PrintTimeInMs();
+  void PrintTimeInNs();
 };
 
 }  // namespace voxelizer

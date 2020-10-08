@@ -32,6 +32,11 @@ int64_t Timer::TimeInMs() {
   return dur / absl::Milliseconds(1);
 }
 
+int64_t Timer::TimeInNs() {
+  absl::Duration dur = end_ - start_;
+  return dur / absl::Nanoseconds(1);
+}
+
 Timer::~Timer() {}
 
 void Timer::PrintTimeInS() {
@@ -40,6 +45,10 @@ void Timer::PrintTimeInS() {
 
 void Timer::PrintTimeInMs() {
   std::cout << "consumes " << TimeInMs() << " ms." << std::endl;
+}
+
+void Timer::PrintTimeInNs() {
+  std::cout << "consumes " << TimeInNs() << " ns." << std::endl;
 }
 
 }  // namespace voxelizer
