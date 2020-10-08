@@ -33,3 +33,8 @@ add_executable(read_rawvox read_rawvox.cpp)
 target_link_libraries(read_rawvox
     voxelizer_lib
 )
+
+add_executable(read_meta read_meta.cpp)
+target_link_libraries(read_meta
+    voxelizer_lib
+)

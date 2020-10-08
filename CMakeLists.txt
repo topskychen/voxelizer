@@ -64,3 +64,5 @@ add_subdirectory(src bin)
 
 enable_testing()
 add_subdirectory(test)
+
+add_subdirectory(examples)

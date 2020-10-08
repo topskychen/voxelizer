@@ -6,9 +6,28 @@
  */
 
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
 #include "voxelizer.h"
 
 namespace voxelizer {
+
+void Voxelizer::InitVoxelMeta() {
+  Vec3f output_lb, output_ub;
+  GetOutputBound(output_lb, output_ub);
+
+  voxel_metas_.reset(new VoxelMeta[size_x_*size_y_*size_z_], ArrayDeleter<VoxelMeta>());
+  VoxelIndex tmp;
+  for (VoxelIndex voxel_index = 0; voxel_index < TotalVoxelSize(); ++voxel_index) {
+    (voxel_metas_.get())[voxel_index].Reset();
+    (voxel_metas_.get())[voxel_index].SetIndex(voxel_index);
+
+    Vec3f voxel = ConvIndexToVoxel(voxel_index);
+    if (!InRange(voxel, output_lb, output_ub)) {
+      (voxel_metas_.get())[voxel_index].SetClipped();
+    }
+  }
+}
 
 absl::Status Voxelizer::Init() {
   if (option_.Verbose()) std::cout << "voxelizer init... " << std::endl;
@@ -52,15 +71,20 @@ absl::Status Voxelizer::Init() {
     
     /**
     * Load meshes.
+    * TODO(topskychen@gmail.com): refactor this function.
     */
     auto status = LoadFromMesh(mesh);
     if (!status.ok()) return status;
+
+    if (option_.WithMeta()) {
+      InitVoxelMeta();
+    }
 
     is_init_ = true;
   } catch (std::exception& e) {
     return absl::AbortedError(e.what());
   }
-  if (option_.Verbose()) std::cout << "done." << std::endl;
+  if (option_.Verbose()) std::cout << "Init done." << std::endl;
 
   return absl::OkStatus();
 }
@@ -214,6 +238,17 @@ absl::Status Voxelizer::LoadFromMesh(const aiMesh* mesh) {
   return absl::OkStatus();
 }
 
+void Voxelizer::UpdateSurfaceMeta() {
+  VoxelIndex tmp;
+  for (VoxelIndex voxel_index = 0; voxel_index < TotalVoxelSize(); ++voxel_index) {
+    tmp = (voxels_.get())[voxel_index / kBatchSize].load();
+    if (GETBIT(tmp, voxel_index)) {
+      (voxel_metas_.get())[voxel_index].SetSurface();
+      (voxel_metas_.get())[voxel_index].UpdateFilled();
+    }
+  }
+}
+
 /**
  * voxelize the surface.
  */
@@ -227,6 +262,9 @@ void Voxelizer::VoxelizeSurface(const int num_thread) {
     tp.Run(boost::bind(&Voxelizer::RunSurfaceTask, this, i));
   }
   tp.Stop();
+  if (option_.WithMeta()) {
+    UpdateSurfaceMeta();
+  }
   if (option_.Verbose()) std::cout << "done." << std::endl;
 }
 
@@ -314,7 +352,21 @@ void Voxelizer::VoxelizeSolid(int num_thread) {
   RunSolidTask2(num_thread);
   for (VoxelIndex i = 0; i < compressed_total_size_; ++i)
     voxels_.get()[i] = voxels_buffer_.get()[i] ^ (~static_cast<VoxelIndex>(0));
+  if (option_.WithMeta()) {
+    UpdateSolidMeta();
+  }
   if (option_.Verbose()) std::cout << "done." << std::endl;
+}
+
+void Voxelizer::UpdateSolidMeta() {
+  VoxelIndex tmp;
+  for (VoxelIndex voxel_index = 0; voxel_index < TotalVoxelSize(); ++voxel_index) {
+    tmp = (voxels_.get())[voxel_index / kBatchSize].load();
+    if (GETBIT(tmp, voxel_index) && !(voxel_metas_.get())[voxel_index].Surface()) {
+      (voxel_metas_.get())[voxel_index].SetSolid();
+      (voxel_metas_.get())[voxel_index].UpdateFilled();
+    }
+  }
 }
 
 inline void Voxelizer::BfsSolid(const VoxelIndex start_index) {
@@ -672,6 +724,9 @@ void Voxelizer::Write() {
   } else {
     std::cout << "no such format: " << format << std::endl;
   }
+  if (option_.WithMeta()) {
+    WriteMeta();
+  }
 }
 
 /**
@@ -794,6 +849,35 @@ void Voxelizer::WriteRawvox() {
   if (option_.Verbose()) std::cout << "wrote " << count << " voxels" << std::endl;
 }
 
+void Voxelizer::WriteMeta() {
+  std::string base_out_file_path = option_.OutFilePath();
+  // remove file extension
+  if (absl::EndsWith(base_out_file_path, ".rawvox") || absl::EndsWith(base_out_file_path, ".binvox")) {
+    base_out_file_path = base_out_file_path.substr(0, base_out_file_path.size() - 7);
+  }
+  std::string meta_out_file_path = base_out_file_path + ".meta";
+
+  if (option_.Verbose()) {
+    std::cout << absl::StrFormat("write meta file to %s.", meta_out_file_path) << std::endl;
+  }
+  std::ofstream* output = new std::ofstream(meta_out_file_path.c_str(), std::ios::out | std::ios::binary);
+
+  // write header
+  *output << "#voxmeta 1" << std::endl;
+  *output << size_x_ << " " << size_y_ << " " << size_z_ << std::endl;
+
+  // write data
+  VoxelIndex tmp;
+  for (VoxelIndex voxel_index = 0; voxel_index < TotalVoxelSize(); ++voxel_index) {
+    *output << (voxel_metas_.get())[voxel_index].Index() << " " << (voxel_metas_.get())[voxel_index].Flags() << std::endl;
+  }
+
+  output->close();
+  if (option_.Verbose()) {
+    std::cout << "meta file is written." << std::endl;
+  }
+}
+
 Voxelizer::~Voxelizer() {
   // TODO Auto-generated destructor stub
 }
@@ -820,6 +904,8 @@ Vec3f Voxelizer::HalfUnit() { return *half_unit_; }
 
 Vec3f Voxelizer::Unit() { return *unit_; }
 
-VoxelIndex Voxelizer::TotalSize() { return compressed_total_size_; }
+VoxelIndex Voxelizer::TotalVoxelCompressedSize() { return compressed_total_size_; }
+
+VoxelIndex Voxelizer::TotalVoxelSize() { return size_x_*size_y_*size_z_; }
 
 }  // namespace voxelizer

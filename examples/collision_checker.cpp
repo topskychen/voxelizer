@@ -55,9 +55,9 @@ bool CollisionChecker::Init() {
   extents_[4] = ub[1];
   extents_[5] = ub[2];
   size2_ = size_ * size_;
-  voxels_.reset(new VoxelIndex[voxelizer_->TotalSize()],
+  voxels_.reset(new VoxelIndex[voxelizer_->TotalVoxelCompressedSize()],
                 ArrayDeleter<VoxelIndex>());
-  for (int i = 0; i < voxelizer_->TotalSize(); ++i)
+  for (int i = 0; i < voxelizer_->TotalVoxelCompressedSize(); ++i)
     voxels_.get()[i] = voxelizer_->Voxels().get()[i];
   unit_.reset(new Box(voxelizer_->Unit()));
   PreMeshCO();

@@ -7,6 +7,4 @@ endmacro(add_check_test)
 
 include_directories ("${PROJECT_SOURCE_DIR}/src/")
 
-add_check_test(collision_checker collision_checker.cpp collision_checker.h)
-add_check_test(read_rawvox read_rawvox.cpp)
-
+add_check_test(test_voxel_meta test_voxel_meta.cpp)
