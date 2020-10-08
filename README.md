@@ -87,7 +87,9 @@ Next, in linux, use `make` in 'build' directory to compile the code.
     --output (output file to store voxelized result); default: "";
     --verbose (print debug info); default: false;
     --voxel_size (voxel size, which determines the size of each voxel);
-      default: ;    
+      default: ;
+    --with_meta (write voxel meta info to .meta file if set to true);
+      default: false;
 ```
 
 <!--- Output (voxel file format, it is wrote in `binvox` or `rawvox` mode, the 'read_rawvox.cpp' in test folder provides a sample code to load the .rawvox file.) `rawvox` is the following format:-->
