@@ -17,8 +17,9 @@ using voxelizer::VoxelIndex;
 
 namespace collision_checker {
 
-FCL_REAL CollisionChecker::RandInterval(FCL_REAL rmin, FCL_REAL rmax) {
-  FCL_REAL t = rand() / ((FCL_REAL)RAND_MAX + 1);
+float CollisionChecker::RandInterval(float rmin, float rmax) {
+  srand (time(NULL));
+  float t = static_cast<float>(rand() % 1000) / 1000;
   return (t * (rmax - rmin) + rmin);
 }
 

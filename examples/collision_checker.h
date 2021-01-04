@@ -33,7 +33,7 @@ class CollisionChecker {
   void EulerToMatrix(FCL_REAL a, FCL_REAL b, FCL_REAL c, Matrix3f& R);
   COSP GenRandomCO(double ratio);
   void PreMeshCO();
-  FCL_REAL RandInterval(FCL_REAL rmin, FCL_REAL rmax);
+  float RandInterval(float rmin, float rmax);
   FCL_REAL extents_[6];
   void GenRandomTransform(FCL_REAL extents[6], Transform3f& transform);
   VoxUP voxelizer_;
