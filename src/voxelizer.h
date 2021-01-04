@@ -266,7 +266,9 @@ class Voxelizer {
   int VerticesSize();
   int FacesSize();
   V3SP Vertices();
+  std::vector<Vec3f> VerticesVec();
   V3SP Faces();
+  std::vector<Triangle> TrianglesVec();
   void VoxelizeSurface(int num_thread = 1);
   void VoxelizeSolid(int num_thread = 1);
   void Write();

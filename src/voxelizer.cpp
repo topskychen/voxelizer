@@ -884,7 +884,24 @@ Voxelizer::~Voxelizer() {
 
 V3SP Voxelizer::Vertices() { return vertices_; }
 
+std::vector<Vec3f> Voxelizer::VerticesVec() { 
+  std::vector<Vec3f> vertices(VerticesSize());
+  for (int i = 0; i < VerticesSize(); ++i) {
+    vertices[i] = (vertices_.get())[i];
+  }
+  return std::move(vertices);
+}
+
 V3SP Voxelizer::Faces() { return faces_; }
+
+std::vector<Triangle> Voxelizer::TrianglesVec() { 
+  std::vector<Triangle> triangles(FacesSize());
+  for (int i = 0; i < FacesSize(); ++i) {
+    const Vec3f& tmp = (faces_.get())[i];
+    triangles[i] = std::move(Triangle(tmp[0], tmp[1], tmp[2]));
+  }
+  return std::move(triangles);
+}
 
 int Voxelizer::VerticesSize() { return num_vertices_; }
 

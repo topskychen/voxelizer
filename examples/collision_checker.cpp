@@ -156,17 +156,8 @@ void CollisionChecker::Test(int num_cases, double ratio) {
 }
 
 void CollisionChecker::PreMeshCO() {
-  vertices_.clear();
-  triangles_.clear();
-  V3SP tmpVertices = voxelizer_->Vertices();
-  for (int i = 0; i < voxelizer_->VerticesSize(); ++i) {
-    vertices_.push_back((tmpVertices.get())[i]);
-  }
-  V3SP tmpFaces = voxelizer_->Faces();
-  for (int i = 0; i < voxelizer_->FacesSize(); ++i) {
-    Vec3f& tmp = (tmpFaces.get())[i];
-    triangles_.push_back(Triangle(tmp[0], tmp[1], tmp[2]));
-  }
+  vertices_ = voxelizer_->VerticesVec();
+  triangles_ = voxelizer_->TrianglesVec();
   ModelSP model(new Model());
   model->beginModel(triangles_.size(), vertices_.size());
   model->addSubModel(vertices_, triangles_);
