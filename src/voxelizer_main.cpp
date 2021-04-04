@@ -30,6 +30,7 @@ ABSL_FLAG(std::string, mode, "solid", "voxelizer mode, surface or solid");
 ABSL_FLAG(int, mesh_index, 0, "mesh index to be voxelized");
 ABSL_FLAG(std::vector<std::string>, clipping_size, {}, "clipping size (x,y,z) to clip the voxelized result. The clipping size is grid size based. If only one integter is specified, clipping size is initialized as (x,x,x). If not set, the result is not clipped.");
 ABSL_FLAG(bool, with_meta, false, "write voxel meta info to .meta file if set to true");
+ABSL_FLAG(bool, tight, false, "If true, check whether the center point of each voxel is inside the mesh or outside it, and if it is outside, remove it. Caveat: this option could be time consuming.");
 
 absl::Status PraseOption(Option& option) {
   std::string format = absl::GetFlag(FLAGS_format);
@@ -63,8 +64,14 @@ absl::Status PraseOption(Option& option) {
   bool verbose = absl::GetFlag(FLAGS_verbose);
   option.SetVerbose(verbose);
 
-  bool with_meta = absl::GetFlag(FLAGS_with_meta);
+  bool tight = absl::GetFlag(FLAGS_tight);
+  option.SetTightFit(tight);
+
+  // tight fit needs with meta.
+  bool with_meta = absl::GetFlag(FLAGS_with_meta) || tight;
   option.SetWithMeta(with_meta);
+
+  
 
   return absl::OkStatus(); 
 }
@@ -90,7 +97,6 @@ int main(int argc, char* argv[]) {
   
   std::string mode = absl::GetFlag(FLAGS_mode);
   
-
   ABSL_INTERNAL_CHECK(grid_size.empty() ^ voxel_size.empty(), "if and only if grid_size or voxel_size should be set.");
 
   Option option;

@@ -1,6 +1,6 @@
 add_subdirectory(abseil-cpp)
 
-set(voxelizer_SRC timer.cpp timer.h voxelizer.cpp voxelizer.h thread_pool.cpp thread_pool.h commons.cpp commons.h tri_box.cpp tri_box.h)
+set(voxelizer_SRC timer.cpp timer.h voxelizer.cpp voxelizer.h thread_pool.cpp thread_pool.h commons.cpp commons.h tri_box.cpp tri_box.h ray_caster.cpp ray_caster.h)
 
 add_library(voxelizer_lib ${voxelizer_SRC})
 target_link_libraries(voxelizer_lib

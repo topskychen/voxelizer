@@ -38,7 +38,8 @@ public:
   Option() {
     mesh_index_ = 0;
     verbose_ = false;
-    with_meta_=  false;
+    with_meta_= false;
+    tight_fit_ = false;
   }
   std::vector<int> ClippingSize() const {
     return clipping_size_;
@@ -82,6 +83,12 @@ public:
   void SetWithMeta(const bool with_meta) {
     with_meta_ = with_meta;
   }
+  bool TightFit() const {
+    return tight_fit_;
+  }
+  void SetTightFit(const bool tight_fit) {
+    tight_fit_ = tight_fit;
+  }
 
 private:
   std::string in_file_path_;
@@ -91,15 +98,15 @@ private:
   int mesh_index_;
   bool verbose_;
   bool with_meta_;
+  bool tight_fit_;
 };
 
 enum VoxelFlagsEnum {
     FILLED            = 0x01 <<  0,        // Set this bit when a voxel cell is not empty. Unset this bit when this voxel is empty.
     INSIDE            = 0x01 <<  1,        // Voxel center is inside the mesh surface , TIGHT
-    OUTSIDE           = 0x01 <<  2,        // Voxel center is outside the mesh surface , NOT TIGHT
-    SURFACE           = 0x01 <<  3,        // Voxel is generated from surface in the surface voxelizing pass
-    SOLID             = 0x01 <<  4,        // Voxel is generated in solid flood filling in the solid voxelizing pass
-    CLIPPED           = 0x01 <<  5,        // Voxel is clipped
+    SURFACE           = 0x01 <<  2,        // Voxel is generated from surface in the surface voxelizing pass
+    SOLID             = 0x01 <<  3,        // Voxel is generated in solid flood filling in the solid voxelizing pass
+    CLIPPED           = 0x01 <<  4,        // Voxel is clipped
 };
 
 class VoxelMeta {
@@ -110,7 +117,7 @@ public:
   }
   void Reset() {
     index_ = 0;
-    flags_ = 0;
+    ClearFlags();
   }
   VoxelIndex Index() const {
     return index_;
@@ -126,6 +133,7 @@ public:
   }
   void ClearFlags() {
     flags_ = 0;
+    SetInside();
   }
   bool Filled() const {
     return (flags_ & VoxelFlagsEnum::FILLED) > 0;
@@ -137,7 +145,7 @@ public:
     flags_ &= ~VoxelFlagsEnum::FILLED;
   }
   void UpdateFilled() {
-    if (!Clipped() && (Solid() || Surface())) {
+    if (!Clipped() && (Solid() || (Surface() && Inside()))) {
       SetFilled();
     } else {
       UnsetFilled();
@@ -148,45 +156,44 @@ public:
   }
   void SetInside() {
     flags_ |= VoxelFlagsEnum::INSIDE;
+    UpdateFilled();
   }
   void UnsetInside() {
    flags_ &= ~VoxelFlagsEnum::INSIDE; 
-  }
-  bool Outside() const {
-    return (flags_ & VoxelFlagsEnum::OUTSIDE) > 0;
-  }
-  void SetOutSide() {
-    flags_ |= VoxelFlagsEnum::OUTSIDE;
-  }
-  void UnsetOutSide() {
-    flags_ &= ~VoxelFlagsEnum::OUTSIDE;
+   UpdateFilled();
   }
   bool Surface() const {
     return (flags_ & VoxelFlagsEnum::SURFACE) > 0;
   }
   void SetSurface() {
     flags_ |= VoxelFlagsEnum::SURFACE;
+    UpdateFilled();
   }
   void UnsetSurface() {
     flags_ &= ~VoxelFlagsEnum::SURFACE;
+    UpdateFilled();
   }
   bool Solid() const {
     return (flags_ & VoxelFlagsEnum::SOLID) > 0;
   }
   void SetSolid() {
     flags_ |= VoxelFlagsEnum::SOLID; 
+    UpdateFilled();
   }
   void UnsetSolid() {
     flags_ &= ~VoxelFlagsEnum::SOLID; 
+    UpdateFilled();
   }
   bool Clipped() const {
     return (flags_ & VoxelFlagsEnum::CLIPPED) > 0;
   }
   void SetClipped() {
     flags_ |= VoxelFlagsEnum::CLIPPED;
+    UpdateFilled();
   }
   void UnsetClipped() {
     flags_ &= ~VoxelFlagsEnum::CLIPPED;
+    UpdateFilled();
   }
 
 private:
@@ -201,6 +208,7 @@ class Voxelizer {
 
   V3UP mesh_lb_, mesh_ub_;          // location
   V3UP mesh_vox_lb_, mesh_vox_ub_;  // voxels of location
+  V3UP output_lb_, output_ub_;      // output lower/upper bound locations
 
   float min_lb_, max_ub_;
   V3UP lb_, ub_, bound_;  // lowerBound and upperBound of the whole space
@@ -240,14 +248,16 @@ class Voxelizer {
   inline bool InRange(const int x, const int y, const int z,
                                const Vec3f& lb, const Vec3f& ub);
   inline TriangleP GetTri(const int tri_id);
+  void ConvIndexToVoxel(const VoxelIndex coord, int& x, int& y, int& z);
   inline Vec3f ConvIndexToVoxel(const VoxelIndex coord);
   void ConvIndexToVoxel(const VoxelIndex coord, Vec3f& voxel);
   inline VoxelIndex ConvVoxelToIndex(const Vec3f& voxel);
   inline VoxelIndex BfsSurface(const TriangleP& tri, const Vec3f& lb, const Vec3f& ub);
   void RandomPermutation(const V3SP& data, int num);
   void BfsSolid(const VoxelIndex voxel_id);
-  void GetOutputBound(Vec3f& output_lb, Vec3f& output_ub);
+  void InitOutputBound();
   void UpdateSurfaceMeta();
+  void UpdateTight();
   void UpdateSolidMeta();
   void InitVoxelMeta();
 
@@ -259,6 +269,7 @@ class Voxelizer {
   AVISP Voxels();
   Vec3f GetVoxel(const Vec3f& loc);
   Vec3f GetLoc(const Vec3f& voxel);
+  Vec3f GetCenterLoc(const Vec3f& voxel);
   Vec3f MeshLowerBound();
   Vec3f MeshUpperBound();
   Vec3f LowerBound();
@@ -271,6 +282,9 @@ class Voxelizer {
   std::vector<Triangle> TrianglesVec();
   void VoxelizeSurface(int num_thread = 1);
   void VoxelizeSolid(int num_thread = 1);
+  // Returns whether a voxel is filled. If meta data is avaiable, use meta.Filled(); otherwise check voxels_.
+  bool Filled(const VoxelIndex voxel_id);
+  bool Filled(const int x, const int y, const int z);
   void Write();
   void WriteBinvox();
   void WriteRawvox();

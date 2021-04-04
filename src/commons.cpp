@@ -11,6 +11,13 @@
 
 namespace voxelizer {
 
+const int kRandMax = 1e6;
+
+float RandFloat(const float rmin, const float rmax) {
+  float t = static_cast<float>(rand() % kRandMax) / kRandMax;
+  return (t * (rmax - rmin) + rmin);
+}
+
 int Random(const int l, const int r) {
   return (int)((1.0 * random()) / RAND_MAX * (r - l)) + l;
 }
@@ -45,6 +52,7 @@ bool ToVector3Int(const std::vector<std::string>& vs, std::vector<int>& vi) {
   }
   return true;
 }
+
 bool ToVector3Float(const std::vector<std::string>& vs, std::vector<float>& vf) {
   vf.clear();
   for (const auto& v : vs) {

@@ -54,6 +54,7 @@ struct ArrayDeleter {
 bool Collide(const Vec3f& size, const Vec3f& boxAA, const TriangleP& tri);
 inline void Fill(const Vec3f& vc, float ft[3]);
 
+float RandFloat(const float rmin=0.0, const float rmax=1.0);
 int Random(const int l, const int r);
 
 const Vec3f D_8[] = {Vec3f(1, 1, 1),   Vec3f(1, 1, -1),  Vec3f(1, -1, 1),
