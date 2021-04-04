@@ -304,7 +304,7 @@ void Voxelizer::VoxelizeSurface(const int num_thread) {
   tp.Stop();
   if (option_.WithMeta()) {
     UpdateSurfaceMeta();
-    if (option_.TightFit()) {
+    if (option_.Tight()) {
       UpdateTight();
     }
   }
@@ -785,20 +785,16 @@ void Voxelizer::Write() {
 }
 
 bool Voxelizer::Filled(const VoxelIndex index) {
+  if (option_.WithMeta()) {
+    return (voxel_metas_.get())[index].Filled();  
+  }
   int x, y, z;
   ConvIndexToVoxel(index, x, y, z);
-  return Filled(x, y, z);
+  return InRange(x, y, z, *output_lb_, *output_ub_)? GETBIT((voxels_.get())[index / kBatchSize].load(), index): 0;  
 }
 
 bool Voxelizer::Filled(const int x, const int y, const int z) {
-  const VoxelIndex index = INDEX(x, y, z);
-  if (option_.WithMeta()) {
-    return (voxel_metas_.get())[index].Filled();  
-  } else {
-    return InRange(index, *output_lb_, *output_ub_)
-          ? GETBIT(voxels_.get()[index / kBatchSize], index)
-          : false;  
-  }
+  return Filled(INDEX(x, y, z));
 }
 
 /**

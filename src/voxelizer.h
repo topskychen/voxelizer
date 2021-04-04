@@ -39,7 +39,7 @@ public:
     mesh_index_ = 0;
     verbose_ = false;
     with_meta_= false;
-    tight_fit_ = false;
+    tight_ = false;
   }
   std::vector<int> ClippingSize() const {
     return clipping_size_;
@@ -83,11 +83,11 @@ public:
   void SetWithMeta(const bool with_meta) {
     with_meta_ = with_meta;
   }
-  bool TightFit() const {
-    return tight_fit_;
+  bool Tight() const {
+    return tight_;
   }
-  void SetTightFit(const bool tight_fit) {
-    tight_fit_ = tight_fit;
+  void SetTight(const bool tight) {
+    tight_ = tight;
   }
 
 private:
@@ -98,7 +98,7 @@ private:
   int mesh_index_;
   bool verbose_;
   bool with_meta_;
-  bool tight_fit_;
+  bool tight_;
 };
 
 enum VoxelFlagsEnum {

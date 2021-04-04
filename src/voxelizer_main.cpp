@@ -65,7 +65,7 @@ absl::Status PraseOption(Option& option) {
   option.SetVerbose(verbose);
 
   bool tight = absl::GetFlag(FLAGS_tight);
-  option.SetTightFit(tight);
+  option.SetTight(tight);
 
   // tight fit needs with meta.
   bool with_meta = absl::GetFlag(FLAGS_with_meta) || tight;
