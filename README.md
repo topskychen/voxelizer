@@ -85,6 +85,9 @@ Next, in linux, use `make` in 'build' directory to compile the code.
     --mode (voxelizer mode, surface or solid); default: "solid";
     --num_thread (number of thread to run voxelizer); default: 4;
     --output (output file to store voxelized result); default: "";
+    --tight (If true, check whether the center point of each voxel is inside the
+      mesh or outside it, and if it is outside, remove it. Caveat: this option
+      could be time consuming.); default: false;
     --verbose (print debug info); default: false;
     --voxel_size (voxel size, which determines the size of each voxel);
       default: ;
