@@ -1,9 +1,11 @@
-cmake_minimum_required(VERSION 2.8)
-project(voxelizer CXX)
+cmake_minimum_required(VERSION 3.5)
+project(voxelizer)
+
+set(CMAKE_CXX_STANDARD 11)
 
 find_package(PkgConfig) # pkg_check_modules
 
-find_package(Boost COMPONENTS atomic thread date_time filesystem system unit_test_framework program_options REQUIRED)
+find_package(Boost COMPONENTS atomic thread date_time filesystem system unit_test_framework REQUIRED)
 
 if(Boost_FOUND)
 	include_directories(${Boost_INCLUDE_DIR})
@@ -60,6 +62,7 @@ endif()
 
 add_subdirectory(src bin)
 
-
 enable_testing()
 add_subdirectory(test)
+
+add_subdirectory(examples)

@@ -27,15 +27,22 @@ using namespace fcl;
 
 namespace voxelizer {
 
+// we use unsigned int64 as the index
+typedef uint64_t VoxelIndex;
+typedef uint32_t VoxelFlags;
+// we batch with 64 bit.
+const int kBatchSize = 64;
+
 typedef boost::shared_ptr<TriangleP> TriSP;
 typedef boost::shared_ptr<Box> BoxSP;
 typedef boost::shared_ptr<Vec3f> V3SP;
+typedef std::unique_ptr<Vec3f> V3UP;
 
-typedef boost::atomic_uint AUint;
-typedef boost::shared_ptr<boost::atomic_uint> AUintSP;
+typedef std::atomic<VoxelIndex> AVI;
+typedef boost::shared_ptr<std::atomic<VoxelIndex>> AVISP;
 
-typedef boost::unordered_set<unsigned int> HashSet;
-typedef boost::shared_ptr<unsigned int> UintSP;
+typedef boost::unordered_set<VoxelIndex> HashSet;
+typedef boost::shared_ptr<VoxelIndex> VISP;
 
 typedef unsigned char Byte;
 
@@ -44,9 +51,10 @@ struct ArrayDeleter {
   void operator()(T const* p) { delete[] p; }
 };
 
-bool Collide(const V3SP& size, const V3SP& boxAA, const TriSP& tri);
+bool Collide(const Vec3f& size, const Vec3f& boxAA, const TriangleP& tri);
 inline void Fill(const Vec3f& vc, float ft[3]);
 
+float RandFloat(const float rmin=0.0, const float rmax=1.0);
 int Random(const int l, const int r);
 
 const Vec3f D_8[] = {Vec3f(1, 1, 1),   Vec3f(1, 1, -1),  Vec3f(1, -1, 1),
@@ -68,6 +76,9 @@ const Vec3f D_26[] = {
     Vec3f(0, 1, 1),    Vec3f(1, -1, -1), Vec3f(1, -1, 0),  Vec3f(1, -1, 1),
     Vec3f(1, 0, -1),   Vec3f(1, 0, 0),   Vec3f(1, 0, 1),   Vec3f(1, 1, -1),
     Vec3f(1, 1, 0),    Vec3f(1, 1, 1)};
+
+bool ToVector3Int(const std::vector<std::string>& vs, std::vector<int>& vi);
+bool ToVector3Float(const std::vector<std::string>& vs, std::vector<float>& vf);
 
 }  // namespace voxelizer
 

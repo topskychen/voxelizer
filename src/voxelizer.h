@@ -17,34 +17,204 @@
 #include <fstream>
 #include <queue>
 
+#include "absl/status/status.h"
 #include "commons.h"
 #include "thread_pool.h"
 #include "timer.h"
 
-using namespace std;
-
 namespace voxelizer {
 
-const int kBatchSize = 32;
 const int kPrimitiveTriangleType = 0x4;
 const int kTriangleNumIndices = 3;
 const Vec3f kEpsBox(0.0001, 0.0001, 0.0001); // epsilon box
 const int kThresholdBfsSurface = 10;
 
 #define GETBIT(x, i) ((x >> (i % kBatchSize)) & 1)
+#define SETBIT(voxels, voxel_index) (voxels.get())[voxel_index / kBatchSize] |= (static_cast<VoxelIndex>(1) << (voxel_index % kBatchSize))
+#define INDEX(x, y, z) x * size_yz_ + y * size_z_ + z
+
+class Option {
+public:
+  Option() {
+    mesh_index_ = 0;
+    verbose_ = false;
+    with_meta_= false;
+    tight_ = false;
+  }
+  std::vector<int> ClippingSize() const {
+    return clipping_size_;
+  }
+  void SetClippingSize(const std::vector<int>& clipping_size) {
+     clipping_size_ = clipping_size;
+  }
+  std::string Format() const {
+    return format_;
+  }
+  void SetFormat(const std::string& format) {
+    format_ = format;
+  }
+  std::string InFilePath() const {
+    return in_file_path_;
+  }
+  void SetInFilePath(const std::string& in_file_path) {
+    in_file_path_ = in_file_path;
+  }
+  std::string OutFilePath() const {
+    return out_file_path_;
+  }
+  void SetOutFilePath(const std::string& out_file_path) {
+    out_file_path_ = out_file_path;
+  }
+  int MeshIndex() const {
+    return mesh_index_;
+  }
+  void SetMeshIndex(const int mesh_index) {
+    mesh_index_ = mesh_index;
+  }
+  bool Verbose() {
+    return verbose_;
+  }
+  void SetVerbose(const bool verbose) {
+    verbose_ = verbose;
+  }
+  bool WithMeta() const {
+    return with_meta_;
+  }
+  void SetWithMeta(const bool with_meta) {
+    with_meta_ = with_meta;
+  }
+  bool Tight() const {
+    return tight_;
+  }
+  void SetTight(const bool tight) {
+    tight_ = tight;
+  }
+
+private:
+  std::string in_file_path_;
+  std::string out_file_path_;
+  std::string format_;
+  std::vector<int> clipping_size_;
+  int mesh_index_;
+  bool verbose_;
+  bool with_meta_;
+  bool tight_;
+};
+
+enum VoxelFlagsEnum {
+    FILLED            = 0x01 <<  0,        // Set this bit when a voxel cell is not empty. Unset this bit when this voxel is empty.
+    INSIDE            = 0x01 <<  1,        // Voxel center is inside the mesh surface , TIGHT
+    SURFACE           = 0x01 <<  2,        // Voxel is generated from surface in the surface voxelizing pass
+    SOLID             = 0x01 <<  3,        // Voxel is generated in solid flood filling in the solid voxelizing pass
+    CLIPPED           = 0x01 <<  4,        // Voxel is clipped
+};
+
+class VoxelMeta {
+public:
+  VoxelMeta(VoxelIndex index, VoxelFlags flags): index_(index), flags_(flags) {}
+  VoxelMeta() {
+    Reset();
+  }
+  void Reset() {
+    index_ = 0;
+    ClearFlags();
+  }
+  VoxelIndex Index() const {
+    return index_;
+  }
+  void SetIndex(const VoxelIndex& index) {
+    index_ = index;
+  }
+  VoxelFlags Flags() const {
+    return flags_;
+  }
+  void SetFlags(const VoxelFlags& flags) {
+    flags_ = flags;
+  }
+  void ClearFlags() {
+    flags_ = 0;
+    SetInside();
+  }
+  bool Filled() const {
+    return (flags_ & VoxelFlagsEnum::FILLED) > 0;
+  }
+  void SetFilled() {
+    flags_ |= VoxelFlagsEnum::FILLED;
+  }
+  void UnsetFilled() {
+    flags_ &= ~VoxelFlagsEnum::FILLED;
+  }
+  void UpdateFilled() {
+    if (!Clipped() && (Solid() || (Surface() && Inside()))) {
+      SetFilled();
+    } else {
+      UnsetFilled();
+    }
+  }
+  bool Inside() const {
+    return (flags_ & VoxelFlagsEnum::INSIDE) > 0;
+  }
+  void SetInside() {
+    flags_ |= VoxelFlagsEnum::INSIDE;
+    UpdateFilled();
+  }
+  void UnsetInside() {
+   flags_ &= ~VoxelFlagsEnum::INSIDE; 
+   UpdateFilled();
+  }
+  bool Surface() const {
+    return (flags_ & VoxelFlagsEnum::SURFACE) > 0;
+  }
+  void SetSurface() {
+    flags_ |= VoxelFlagsEnum::SURFACE;
+    UpdateFilled();
+  }
+  void UnsetSurface() {
+    flags_ &= ~VoxelFlagsEnum::SURFACE;
+    UpdateFilled();
+  }
+  bool Solid() const {
+    return (flags_ & VoxelFlagsEnum::SOLID) > 0;
+  }
+  void SetSolid() {
+    flags_ |= VoxelFlagsEnum::SOLID; 
+    UpdateFilled();
+  }
+  void UnsetSolid() {
+    flags_ &= ~VoxelFlagsEnum::SOLID; 
+    UpdateFilled();
+  }
+  bool Clipped() const {
+    return (flags_ & VoxelFlagsEnum::CLIPPED) > 0;
+  }
+  void SetClipped() {
+    flags_ |= VoxelFlagsEnum::CLIPPED;
+    UpdateFilled();
+  }
+  void UnsetClipped() {
+    flags_ &= ~VoxelFlagsEnum::CLIPPED;
+    UpdateFilled();
+  }
+
+private:
+  VoxelIndex index_;
+  VoxelFlags flags_;
+};
 
 class Voxelizer {
+  Option option_;
+  boost::shared_ptr<VoxelMeta> voxel_metas_;
   bool is_init_;
-  bool verbose_;
-  int mesh_index_;
-  string p_file_;
 
-  V3SP mesh_lb_, mesh_ub_;          // location
-  V3SP mesh_vox_lb_, mesh_vox_ub_;  // voxels of location
+  V3UP mesh_lb_, mesh_ub_;          // location
+  V3UP mesh_vox_lb_, mesh_vox_ub_;  // voxels of location
+  V3UP output_lb_, output_ub_;      // output lower/upper bound locations
 
   float min_lb_, max_ub_;
-  V3SP lb_, ub_, bound_;  // lowerBound and upperBound of the whole space
-  V3SP half_unit_;        // half size of the unit
+  V3UP lb_, ub_, bound_;  // lowerBound and upperBound of the whole space
+  V3UP unit_, half_unit_;        // full or half size of the unit
+
+  int num_meshes_;
 
   V3SP faces_;
   int num_faces_;
@@ -52,12 +222,16 @@ class Voxelizer {
   V3SP vertices_;
   int num_vertices_;
 
-  AUintSP voxels_buffer_;
-  AUintSP voxels_;
+  AVISP voxels_buffer_;
+  AVISP voxels_;
 
-  unsigned int size_, total_size_, size2_;  // size_2 = size*size
+  VoxelIndex size2_, size_x_, size_y_, size_z_, size_xy_, size_xz_, size_yz_, compressed_total_size_;  // size_2 = size*size
+  V3UP size_, scale_;
 
-  inline void LoadFromMesh(const aiMesh* mesh);
+  std::vector<int> grid_size_;
+  std::vector<float> voxel_size_;
+
+  absl::Status LoadFromMesh(const aiMesh* mesh);
   inline void RunSolidTask(size_t num_thread = 1);
   inline void RunSolidTask2(size_t num_thread = 1);
   inline void RunSurfaceTask(const int tri_id);
@@ -67,48 +241,74 @@ class Voxelizer {
   inline void FillYZ2(const int x);
   inline void FillXZ2(const int y);
   inline void FillXY2(const int z);
-  inline bool InRange(const Vec3f& vc, const V3SP& lb, const V3SP& ub);
-  inline bool InRange(const int& x, const int& y, const int& z, const int& lx,
-                      const int& ly, const int& lz, const int& ux,
-                      const int& uy, const int& uz);
-
-  inline TriSP GetTri(const int tri_id);
-  inline V3SP ConvIntToVoxel(const unsigned int& coord);
-  inline unsigned int ConvVoxelToInt(const V3SP& voxel);
-  inline unsigned int ConvVoxelToInt(const Vec3f& voxel);
-  inline int BfsSurface(const TriSP& tri, const V3SP& lb, const V3SP& ub);
-  inline void RandomPermutation(const V3SP& data, int num);
-  inline void BfsSolid(const unsigned int voxel_id);
+  inline bool InRange(const Vec3f& vc, const Vec3f& lb, const Vec3f& ub);
+  inline bool InRange(const int x, const int y, const int z, const int lx,
+                      const int ly, const int lz, const int ux,
+                      const int uy, const int uz);
+  inline bool InRange(const int x, const int y, const int z,
+                               const Vec3f& lb, const Vec3f& ub);
+  inline TriangleP GetTri(const int tri_id);
+  void ConvIndexToVoxel(const VoxelIndex coord, int& x, int& y, int& z);
+  inline Vec3f ConvIndexToVoxel(const VoxelIndex coord);
+  void ConvIndexToVoxel(const VoxelIndex coord, Vec3f& voxel);
+  inline VoxelIndex ConvVoxelToIndex(const Vec3f& voxel);
+  inline VoxelIndex BfsSurface(const TriangleP& tri, const Vec3f& lb, const Vec3f& ub);
+  void RandomPermutation(const V3SP& data, int num);
+  void BfsSolid(const VoxelIndex voxel_id);
+  void InitOutputBound();
+  void UpdateSurfaceMeta();
+  void UpdateTight();
+  void UpdateSolidMeta();
+  void InitVoxelMeta();
 
  public:
-  int GetTotalSize();
-  V3SP GetHalfUnit();
-  AUintSP GetVoxels();
-  V3SP GetVoxel(const Vec3f& loc);
-  V3SP GetVoxel(const V3SP& loc);
-  V3SP GetLoc(const V3SP& voxel);
-  V3SP GetLoc(const Vec3f& voxel);
-  V3SP GetMeshLowerBound();
-  V3SP GetMeshUpperBound();
-  V3SP GetLowerBound();
-  V3SP GetUpperBound();
-  int GetVerticesSize();
-  int GetFacesSize();
-  V3SP GetVertices();
-  V3SP GetFaces();
+  VoxelIndex TotalVoxelSize();
+  VoxelIndex TotalVoxelCompressedSize();
+  Vec3f HalfUnit();
+  Vec3f Unit();
+  AVISP Voxels();
+  Vec3f GetVoxel(const Vec3f& loc);
+  Vec3f GetLoc(const Vec3f& voxel);
+  Vec3f GetCenterLoc(const Vec3f& voxel);
+  Vec3f MeshLowerBound();
+  Vec3f MeshUpperBound();
+  Vec3f LowerBound();
+  Vec3f UpperBound();
+  int VerticesSize();
+  int FacesSize();
+  V3SP Vertices();
+  std::vector<Vec3f> VerticesVec();
+  V3SP Faces();
+  std::vector<Triangle> TrianglesVec();
   void VoxelizeSurface(int num_thread = 1);
   void VoxelizeSolid(int num_thread = 1);
-  void Write(const string& p_file, const string& format);
-  void WriteBinvox(const string& p_file);
-  void WriteRawvox(const string& p_file);
-  void WriteCmpvox(const string& p_file);
-  bool Init();
-  Voxelizer(int size, const string& p_file, int mesh_index=0, bool verbose=false)
-      : size_(size), p_file_(p_file), mesh_index_(mesh_index), verbose_(verbose) {
-        size2_ = size_ * size_;
-        total_size_ = static_cast<uint32_t>(
-          (static_cast<uint64_t>(size_) * size_ * size_) / kBatchSize);
+  // Returns whether a voxel is filled. If meta data is avaiable, use meta.Filled(); otherwise check voxels_.
+  bool Filled(const VoxelIndex voxel_id);
+  bool Filled(const int x, const int y, const int z);
+  void Write();
+  void WriteBinvox();
+  void WriteRawvox();
+  void WriteMeta();
+  absl::Status Init();
+  void SetOption(const Option& option) {
+    option_ = option;
+  }
+  Voxelizer(int grid_size, const Option& option)
+      : option_(option) {
+        grid_size_.push_back(grid_size);
+        grid_size_.push_back(grid_size);
+        grid_size_.push_back(grid_size);
       }
+  Voxelizer(float voxel_size, const Option& option)
+      : option_(option) {
+        voxel_size_.push_back(voxel_size);
+        voxel_size_.push_back(voxel_size);
+        voxel_size_.push_back(voxel_size);
+      }
+  Voxelizer(const std::vector<int>& grid_size, const Option& option)
+      : grid_size_(grid_size), option_(option) {}
+  Voxelizer(const std::vector<float>& voxel_size, const Option& option)
+      : voxel_size_(voxel_size), option_(option) {}
   virtual ~Voxelizer();
 };
 
